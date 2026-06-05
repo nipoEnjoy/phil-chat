@@ -2,6 +2,7 @@ package com.npopov.philharmonic.event.service;
 
 import com.npopov.philharmonic.event.domain.Event;
 import com.npopov.philharmonic.organizer.domain.Organizer;
+import com.npopov.philharmonic.shared.exception.ResourceNotFoundException;
 import com.npopov.philharmonic.venue.domain.Venue;
 import com.npopov.philharmonic.event.dto.EventCreateRequest;
 import com.npopov.philharmonic.event.dto.EventResponse;
@@ -51,21 +52,21 @@ public class EventService {
         return eventRepository.save(event);
     }
 
-    public Event createFromRequest(EventCreateRequest request) {
-        Venue venue = venueService.findById(request.venueId()).orElseThrow(()
-                -> new IllegalArgumentException("Venue not found"));
-        Organizer organizer = request.organizerId() != null
-                ? organizerService.findById(request.organizerId()).orElse(null) : null;
-        Event event = new Event(
-                request.title(),
-                request.eventType(),
-                venue,
-                organizer,
-                request.startDatetime(),
-                request.endDatetime(),
-                request.description());
-        return save(event);
-    }
+//    public Event createFromRequest(EventCreateRequest request) {
+//        Venue venue = venueService.findById(request.venueId())
+//                .orElseThrow(() -> new ResourceNotFoundException("Venue not found"));
+//        Organizer organizer = request.organizerId() != null
+//                ? organizerService.findById(request.organizerId()).orElse(null) : null;
+//        Event event = new Event(
+//                request.title(),
+//                request.eventType(),
+//                venue,
+//                organizer,
+//                request.startDatetime(),
+//                request.endDatetime(),
+//                request.description());
+//        return save(event);
+//    }
 
     public EventResponse toResponse(Event event) {
         return new EventResponse(

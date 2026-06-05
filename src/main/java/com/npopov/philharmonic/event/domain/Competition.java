@@ -1,24 +1,18 @@
 package com.npopov.philharmonic.event.domain;
 
+import com.npopov.philharmonic.organizer.domain.Organizer;
 import com.npopov.philharmonic.shared.domain.Auditable;
 import com.npopov.philharmonic.shared.domain.HasId;
+import com.npopov.philharmonic.venue.domain.Venue;
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
 import java.util.Set;
 
 @Entity
 @Table(name = "competition")
-@PrimaryKeyJoinColumn(name = "id")
+@DiscriminatorValue("COMPETITION")
 public class Competition extends Event {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
-
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "event_id", nullable = false, unique = true)
-    private Event event;
 
     @Column(name = "competition_type")
     private String competitionType;
@@ -32,30 +26,17 @@ public class Competition extends Event {
     @OneToMany(mappedBy = "competition", fetch = FetchType.LAZY)
     private Set<CompetitionResult> competitionResults;
 
-    public Competition() {}
-
-    public Competition(Event event, String competitionType, String rules, String juryInfo) {
-        this.event = event;
+    public Competition(String title, Venue venue, Organizer organizer,
+                       LocalDateTime startDatetime, LocalDateTime endDatetime,
+                       String description, String competitionType,
+                       String rules, String juryInfo) {
+        super(title, EventType.COMPETITION, venue, organizer, startDatetime, endDatetime, description);  // event
         this.competitionType = competitionType;
         this.rules = rules;
         this.juryInfo = juryInfo;
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Event getEvent() {
-        return event;
-    }
-
-    public void setEvent(Event event) {
-        this.event = event;
-    }
+    public Competition() {}
 
     public String getCompetitionType() {
         return competitionType;

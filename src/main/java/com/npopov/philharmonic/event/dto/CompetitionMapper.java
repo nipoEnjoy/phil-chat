@@ -8,7 +8,9 @@ public class CompetitionMapper {
 
     public static Competition toCompetition(CompetitionCreateRequest request) {
         return new Competition(
-                request.eventId()
+                request.competitionType(),
+                request.rules(),
+                request.juryInfo()
         );
     }
 }

@@ -48,11 +48,11 @@ public class EventController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PostMapping
-    public EventResponse createEvent(@RequestBody EventCreateRequest request) {
-        Event event = eventService.createFromRequest(request);
-        return eventService.toResponse(event);
-    }
+//    @PostMapping
+//    public EventResponse createEvent(@RequestBody EventCreateRequest request) {
+//        Event event = eventService.createFromRequest(request);
+//        return eventService.toResponse(event);
+//    }
 
     @PutMapping("/{id}")
     public ResponseEntity<Event> updateEvent(@PathVariable Long id, @RequestBody Event event) {

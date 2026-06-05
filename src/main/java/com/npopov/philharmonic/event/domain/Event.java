@@ -11,8 +11,9 @@ import java.util.Set;
 
 @Entity
 @Table(name = "event")
-public class Event extends Auditable implements HasId<Long> {
-
+@Inheritance(strategy = InheritanceType.JOINED)
+@DiscriminatorColumn(name = "event_type", discriminatorType = DiscriminatorType.STRING)
+public abstract class Event extends Auditable implements HasId<Long> {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
@@ -44,9 +45,6 @@ public class Event extends Auditable implements HasId<Long> {
 
     @OneToMany(mappedBy = "event", fetch = FetchType.LAZY)
     private Set<EventArtist> eventArtists;
-
-    @OneToOne(mappedBy = "event", fetch = FetchType.LAZY)
-    private Competition competition;
 
     public Event() {}
 
@@ -130,13 +128,5 @@ public class Event extends Auditable implements HasId<Long> {
 
     public void setEventArtists(Set<EventArtist> eventArtists) {
         this.eventArtists = eventArtists;
-    }
-
-    public Competition getCompetition() {
-        return competition;
-    }
-
-    public void setCompetition(Competition competition) {
-        this.competition = competition;
     }
 }

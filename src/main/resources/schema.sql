@@ -39,34 +39,34 @@ CREATE TABLE venue (
 );
 
 CREATE TABLE theatre (
-    id BIGINT PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
     capacity INTEGER,
     stage_width_mm INTEGER,
     stage_depth_mm INTEGER
 );
 
-CREATE TABLE cinema (
-    id BIGINT PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
-    screen_width_mm INTEGER NOT NULL,
-    screen_height_mm INTEGER NOT NULL,
-    screen_diagonal_mm INTEGER,
-    screen_aspect_ratio VARCHAR(50)
-);
-
 CREATE TABLE concert_venue (
-    id BIGINT PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
     stage_type VARCHAR(100),
     has_sound_system BOOLEAN
 );
 
 CREATE TABLE variety_stage (
-    id BIGINT PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
     genre_focus VARCHAR(100)
 );
 
 CREATE TABLE cultural_centre (
-    id BIGINT PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
     community_rooms_count INTEGER
+);
+
+CREATE TABLE cinema (
+    id BIGSERIAL PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
+    screen_width_mm INTEGER NOT NULL,
+    screen_height_mm INTEGER NOT NULL,
+    screen_diagonal_mm INTEGER,
+    screen_aspect_ratio VARCHAR(50)
 );
 
 CREATE TABLE organizer (
@@ -91,6 +91,17 @@ CREATE TABLE event (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE concert (
+    id BIGSERIAL PRIMARY KEY REFERENCES event(id) ON DELETE CASCADE
+);
+
+CREATE TABLE competition (
+    id BIGSERIAL PRIMARY KEY REFERENCES event(id) ON DELETE CASCADE,
+    competition_type VARCHAR(100),
+    rules VARCHAR(1000),
+    jury_info VARCHAR(500)
+);
+
 CREATE TABLE competition_result (
     id BIGSERIAL PRIMARY KEY,
     competition_id BIGINT NOT NULL REFERENCES competition(id) ON DELETE CASCADE,
@@ -103,6 +114,7 @@ CREATE TABLE competition_result (
 );
 
 -- Users for authentification
+
 CREATE TABLE user_table (
     id BIGSERIAL PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE CHECK (length(trim(username)) > 0),
@@ -114,7 +126,7 @@ CREATE TABLE user_table (
 );
 
 CREATE TABLE user_roles (
-    user_id BIGINT NOT NULL REFERENCES user_table(id) ON DELETE CASCADE,
+    user_id BIGSERIAL NOT NULL REFERENCES user_table(id) ON DELETE CASCADE,
     role VARCHAR(50) NOT NULL CHECK (role IN ('USER', 'ADMIN', 'SUPERADMIN')),
     PRIMARY KEY (user_id, role)
 );
@@ -152,16 +164,6 @@ CREATE TABLE event_artist (
     UNIQUE (event_id, artist_id)
 );
 
-CREATE TABLE competition (
-    id BIGSERIAL PRIMARY KEY,
-    event_id BIGINT NOT NULL UNIQUE REFERENCES event(id) ON DELETE CASCADE,
-    competition_type VARCHAR(100),
-    rules VARCHAR(1000),
-    jury_info VARCHAR(500),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Triggers --
 
 CREATE OR REPLACE FUNCTION set_created_at_column()
@@ -194,7 +196,6 @@ CREATE TRIGGER update_venue_updated_at BEFORE INSERT ON venue FOR EACH ROW EXECU
 CREATE TRIGGER update_organizer_updated_at BEFORE INSERT ON organizer FOR EACH ROW EXECUTE FUNCTION set_created_at_column();
 CREATE TRIGGER update_event_updated_at BEFORE INSERT ON event FOR EACH ROW EXECUTE FUNCTION set_created_at_column();
 CREATE TRIGGER update_event_artist_updated_at BEFORE INSERT ON event_artist FOR EACH ROW EXECUTE FUNCTION set_created_at_column();
-CREATE TRIGGER update_competition_updated_at BEFORE INSERT ON competition FOR EACH ROW EXECUTE FUNCTION set_created_at_column();
 CREATE TRIGGER update_competition_result_updated_at BEFORE INSERT ON competition_result FOR EACH ROW EXECUTE FUNCTION set_created_at_column();
 CREATE TRIGGER update_user_updated_at BEFORE INSERT ON user_table FOR EACH ROW EXECUTE FUNCTION set_created_at_column();
 
@@ -209,6 +210,5 @@ CREATE TRIGGER update_venue_updated_at BEFORE UPDATE ON venue FOR EACH ROW EXECU
 CREATE TRIGGER update_organizer_updated_at BEFORE UPDATE ON organizer FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_event_updated_at BEFORE UPDATE ON event FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_event_artist_updated_at BEFORE UPDATE ON event_artist FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_competition_updated_at BEFORE UPDATE ON competition FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_competition_result_updated_at BEFORE UPDATE ON competition_result FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_user_updated_at BEFORE UPDATE ON user_table FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
