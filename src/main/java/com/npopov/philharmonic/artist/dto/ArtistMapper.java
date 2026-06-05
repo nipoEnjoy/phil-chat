@@ -3,31 +3,33 @@ package com.npopov.philharmonic.artist.dto;
 import com.npopov.philharmonic.artist.domain.Artist;
 import com.npopov.philharmonic.identity.user.domain.User;
 import com.npopov.philharmonic.identity.user.dto.UserResponse;
+import org.springframework.stereotype.Component;
 
-public final class ArtistMapper {
+@Component
+public class ArtistMapper {
     private ArtistMapper() {}
 
-    public static Artist toArtist(ArtistCreateRequest request) {
+    public Artist toArtistFromCreate(ArtistCreateRequest request) {
         if (request == null) return new Artist();
         return new Artist(
-                request.firstName(),
-                request.lastName(),
-                request.stageName(),
-                request.contactInfo()
+                request.getFirstName(),
+                request.getLastName(),
+                request.getStageName(),
+                request.getContactInfo()
         );
     }
 
-    public static Artist toArtist(ArtistUpdateRequest request) {
+    public Artist toArtistFromUpdate(ArtistUpdateRequest request) {
         if (request == null) return new Artist();
         return new Artist(
-                request.firstName(),
-                request.lastName(),
-                request.stageName(),
-                request.contactInfo()
+                request.getFirstName(),
+                request.getLastName(),
+                request.getStageName(),
+                request.getContactInfo()
         );
     }
 
-    public static ArtistResponse toResponse(Artist artist) {
+    public ArtistResponse toResponse(Artist artist) {
         if (artist == null) return null;
         return new ArtistResponse(
                 artist.getId(),

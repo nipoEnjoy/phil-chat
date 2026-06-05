@@ -22,9 +22,9 @@ public abstract class Event extends Auditable implements HasId<Long> {
     @Column(name = "title", nullable = false, length = 200)
     private String title;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "event_type")
-    private EventType eventType;
+//    @Enumerated(EnumType.STRING)
+//    @Column(name = "event_type")
+//    private EventType eventType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "venue_id", nullable = false)
@@ -48,9 +48,9 @@ public abstract class Event extends Auditable implements HasId<Long> {
 
     public Event() {}
 
-    public Event(String title, EventType eventType, Venue venue, Organizer organizer, LocalDateTime startDatetime, LocalDateTime endDatetime, String description) {
+    public Event(String title, Venue venue, Organizer organizer, LocalDateTime startDatetime, LocalDateTime endDatetime, String description) {
         this.title = title;
-        this.eventType = eventType;
+//        this.eventType = eventType;
         this.venue = venue;
         this.organizer = organizer;
         this.startDatetime = startDatetime;
@@ -73,14 +73,14 @@ public abstract class Event extends Auditable implements HasId<Long> {
     public void setTitle(String title) {
         this.title = title;
     }
-
-    public EventType getEventType() {
-        return eventType;
-    }
-
-    public void setEventType(EventType eventType) {
-        this.eventType = eventType;
-    }
+//
+//    public EventType getEventType() {
+//        return eventType;
+//    }
+//
+//    public void setEventType(EventType eventType) {
+//        this.eventType = eventType;
+//    }
 
     public Venue getVenue() {
         return venue;

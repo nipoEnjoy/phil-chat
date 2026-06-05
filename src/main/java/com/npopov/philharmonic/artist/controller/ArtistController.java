@@ -21,22 +21,20 @@ import java.util.stream.Collectors;
 @Validated
 public class ArtistController {
 
-    private final GenericRestController<Artist, Long, ArtistResponse, ArtistCreateRequest, ArtistUpdateRequest> genericController;
+    private final GenericRestController<Artist, Long,
+            ArtistResponse, ArtistCreateRequest, ArtistUpdateRequest> genericController;
     private final ArtistService artistService;
+    private final ArtistMapper artistMapper;
 
-    public ArtistController(ArtistService artistService) {
+    public ArtistController(ArtistService artistService, ArtistMapper artistMapper) {
         this.artistService = artistService;
+        this.artistMapper = artistMapper;
         this.genericController = new GenericRestController<>(
                 artistService,
-                ArtistMapper::toResponse,
-                req -> new Artist(
-                        req.firstName(),
-                        req.lastName(),
-                        req.stageName(),
-                        req.contactInfo()
-                ),
+                artistMapper::toResponse,
+                artistMapper::toArtistFromCreate,
                 (id, req) -> {
-                    Artist artist = ArtistMapper.toArtist(req);
+                    Artist artist = artistMapper.toArtistFromUpdate(req);
                     artist.setId(id);
                     return artist;
                 }
@@ -44,7 +42,7 @@ public class ArtistController {
     }
 
     @GetMapping
-    public List<ArtistResponse> getAllArtists(
+    public List<ArtistResponse> getAll(
             @RequestParam(required = false) String genre,
             @RequestParam(required = false) Long impresarioId,
             @RequestParam(required = false) Boolean multipleGenres) {
@@ -59,7 +57,7 @@ public class ArtistController {
         } else {
             artists = artistService.findAll();
         }
-        return artists.stream().map(ArtistMapper::toResponse).collect(Collectors.toList());
+        return artists.stream().map(artistMapper::toResponse).collect(Collectors.toList());
     }
 
     @GetMapping("/{id}")
@@ -70,13 +68,12 @@ public class ArtistController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
     public ResponseEntity<ArtistResponse> create(@Valid @RequestBody ArtistCreateRequest request) {
-        Artist artist = artistService.create(ArtistMapper.toArtist(request));
-        return ResponseEntity.ok(ArtistMapper.toResponse(artist));
+        return genericController.create(request);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
-    public ResponseEntity<ArtistResponse> updateArtist(
+    public ResponseEntity<ArtistResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody ArtistUpdateRequest request) {
         return genericController.update(id, request);

@@ -10,7 +10,7 @@ import java.util.Set;
 @Entity
 @Table(name = "venue")
 @Inheritance(strategy = InheritanceType.JOINED)
-public abstract class Venue extends Auditable implements HasId<Long> {
+public class Venue extends Auditable implements HasId<Long> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

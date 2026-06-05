@@ -72,7 +72,7 @@ public class EventService {
         return new EventResponse(
                 event.getId(),
                 event.getTitle(),
-                event.getEventType(),
+//                event.getEventType(),
                 event.getVenue() != null ? event.getVenue().getId() : null,
                 event.getVenue() != null ? event.getOrganizer().getId(): null,
                 event.getStartDatetime(),

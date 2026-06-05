@@ -20,7 +20,7 @@ public class Concert extends Event {
     public Concert(String title, Venue venue, Organizer organizer,
                    LocalDateTime startDatetime, LocalDateTime endDatetime,
                    String description, String program) {
-        super(title, EventType.CONCERT, venue, organizer, startDatetime, endDatetime, description);
+        super(title, venue, organizer, startDatetime, endDatetime, description);
         this.program = program;
     }
 

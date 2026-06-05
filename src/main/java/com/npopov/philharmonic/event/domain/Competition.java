@@ -30,7 +30,7 @@ public class Competition extends Event {
                        LocalDateTime startDatetime, LocalDateTime endDatetime,
                        String description, String competitionType,
                        String rules, String juryInfo) {
-        super(title, EventType.COMPETITION, venue, organizer, startDatetime, endDatetime, description);  // event
+        super(title, venue, organizer, startDatetime, endDatetime, description);  // event
         this.competitionType = competitionType;
         this.rules = rules;
         this.juryInfo = juryInfo;
