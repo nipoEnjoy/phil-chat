@@ -43,7 +43,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body("Username already exists");
         }
         User user = UserMapper.toUser(req);
-        User saved = userService.save(user); // save encodes password
+        User saved = userService.create(user); // create method encodes password
         return ResponseEntity.ok(saved);
     }
 }

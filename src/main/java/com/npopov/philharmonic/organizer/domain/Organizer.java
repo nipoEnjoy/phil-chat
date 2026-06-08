@@ -1,6 +1,6 @@
 package com.npopov.philharmonic.organizer.domain;
 
-import com.npopov.philharmonic.event.domain.Event;
+import com.npopov.philharmonic.events.event.domain.Event;
 import com.npopov.philharmonic.shared.domain.Auditable;
 import com.npopov.philharmonic.shared.domain.HasId;
 import jakarta.persistence.*;

@@ -55,7 +55,7 @@ public class ArtistController {
         } else if (Boolean.TRUE.equals(multipleGenres)) {
             artists = artistService.findWithMultipleGenres();
         } else {
-            artists = artistService.findAll();
+            artists = artistService.getAll();
         }
         return artists.stream().map(artistMapper::toResponse).collect(Collectors.toList());
     }

@@ -2,6 +2,7 @@ package com.npopov.philharmonic.identity.user.service;
 
 import com.npopov.philharmonic.identity.user.domain.User;
 import com.npopov.philharmonic.identity.user.repository.UserRepository;
+import com.npopov.philharmonic.shared.service.JpaCrudService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -10,7 +11,7 @@ import org.springframework.stereotype.Service;
 import java.util.Optional;
 
 @Service
-public class UserService {
+public class UserService extends JpaCrudService<User, Long> {
 
     Logger logger = LoggerFactory.getLogger(UserService.class);
 
@@ -18,13 +19,9 @@ public class UserService {
     private final BCryptPasswordEncoder passwordEncoder;
 
     public UserService(UserRepository userRepository) {
+        super(userRepository);
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
-    }
-
-    public User save(User user) {
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        return userRepository.save(user);
     }
 
     public Optional<User> findByUsername(String username) {

@@ -39,30 +39,30 @@ CREATE TABLE venue (
 );
 
 CREATE TABLE theatre (
-    id BIGSERIAL PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
+    id BIGINT PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
     capacity INTEGER,
     stage_width_mm INTEGER,
     stage_depth_mm INTEGER
 );
 
 CREATE TABLE concert_venue (
-    id BIGSERIAL PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
+    id BIGINT PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
     stage_type VARCHAR(100),
     has_sound_system BOOLEAN
 );
 
 CREATE TABLE variety_stage (
-    id BIGSERIAL PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
+    id BIGINT PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
     genre_focus VARCHAR(100)
 );
 
 CREATE TABLE cultural_centre (
-    id BIGSERIAL PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
+    id BIGINT PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
     community_rooms_count INTEGER
 );
 
 CREATE TABLE cinema (
-    id BIGSERIAL PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
+    id BIGINT PRIMARY KEY REFERENCES venue(id) ON DELETE CASCADE,
     screen_width_mm INTEGER NOT NULL,
     screen_height_mm INTEGER NOT NULL,
     screen_diagonal_mm INTEGER,
@@ -92,11 +92,24 @@ CREATE TABLE event (
 );
 
 CREATE TABLE concert (
-    id BIGSERIAL PRIMARY KEY REFERENCES event(id) ON DELETE CASCADE
+    id BIGINT PRIMARY KEY REFERENCES event(id) ON DELETE CASCADE,
+    program VARCHAR(1000)
+);
+
+CREATE TABLE solo (
+    id BIGINT PRIMARY KEY REFERENCES event(id) ON DELETE CASCADE
+);
+
+CREATE TABLE festival (
+    id BIGINT PRIMARY KEY REFERENCES event(id) ON DELETE CASCADE
+);
+
+CREATE TABLE other_event (
+    id BIGINT PRIMARY KEY REFERENCES event(id) ON DELETE CASCADE
 );
 
 CREATE TABLE competition (
-    id BIGSERIAL PRIMARY KEY REFERENCES event(id) ON DELETE CASCADE,
+    id BIGINT PRIMARY KEY REFERENCES event(id) ON DELETE CASCADE,
     competition_type VARCHAR(100),
     rules VARCHAR(1000),
     jury_info VARCHAR(500)

@@ -4,8 +4,6 @@ import com.npopov.philharmonic.shared.exception.ResourceNotFoundException;
 import com.npopov.philharmonic.shared.service.CrudService;
 import org.springframework.http.ResponseEntity;
 
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -42,8 +40,8 @@ public class GenericRestController<E, ID, R, C, U> {
         this.fromUpdate = fromUpdate;
     }
 
-        public List<R> getAll() {
-        return service.findAll().stream().map(toResponse).collect(Collectors.toList());
+    public List<R> getAll() {
+        return service.getAll().stream().map(toResponse).collect(Collectors.toList());
     }
 
     public ResponseEntity<R> getById(ID id) {

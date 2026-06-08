@@ -5,10 +5,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import tools.jackson.databind.exc.InvalidDefinitionException;
+import tools.jackson.databind.exc.MismatchedInputException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,6 +37,38 @@ public class GlobalExceptionHandler {
                 "One or more fields have invalid data",
                 request.getRequestURI(),
                 details
+        );
+
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(
+            HttpMessageNotReadableException ex, HttpServletRequest request) {
+
+        String userFriendlyMessage = "Неверный формат JSON или отсутствуют обязательные поля.";
+
+        // Jackson causes
+        if (ex.getCause() instanceof MismatchedInputException) {
+            userFriendlyMessage = "Отсутствует обязательное поле или указан неверный тип данных. Проверьте структуру JSON.";
+        } else if (ex.getCause() instanceof InvalidDefinitionException) {
+            userFriendlyMessage = "Внутренняя ошибка конфигурации десериализации. Возможно, отсутствует конструктор по умолчанию.";
+        } else if (ex.getCause() != null && ex.getCause().getMessage() != null) {
+            String causeMsg = ex.getCause().getMessage();
+            if (causeMsg.contains("Cannot construct instance of")) {
+                userFriendlyMessage = "Не удалось определить тип сущности. Убедитесь, что поле 'venueType' (или 'eventType') указано корректно.";
+            } else {
+                userFriendlyMessage = causeMsg;
+            }
+        }
+
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                "Bad Request",
+                userFriendlyMessage,
+                request.getRequestURI(),
+                null
         );
 
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);

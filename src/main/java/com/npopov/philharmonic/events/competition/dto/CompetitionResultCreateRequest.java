@@ -1,0 +1,64 @@
+package com.npopov.philharmonic.events.competition.dto;
+
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
+public class CompetitionResultCreateRequest {
+        @NotNull(message = "Competition ID is required")
+        Long competitionId;
+
+        @NotNull(message = "Artist ID is required")
+        Long artistId;
+
+        Integer place;
+
+        @Size(max = 200, message = "Award must not exceed 200 characters")
+        String award;
+
+        public CompetitionResultCreateRequest(Long competitionId, Long artistId, Integer place, String award) {
+                this.competitionId = competitionId;
+                this.artistId = artistId;
+                this.place = place;
+                this.award = award;
+        }
+
+        public CompetitionResultCreateRequest(Long artistId, Integer place, String award) {
+                this.artistId = artistId;
+                this.place = place;
+                this.award = award;
+        }
+
+        public CompetitionResultCreateRequest() {}
+
+        public Long getCompetitionId() {
+                return competitionId;
+        }
+
+        public void setCompetitionId(Long competitionId) {
+                this.competitionId = competitionId;
+        }
+
+        public Long getArtistId() {
+                return artistId;
+        }
+
+        public void setArtistId(Long artistId) {
+                this.artistId = artistId;
+        }
+
+        public Integer getPlace() {
+                return place;
+        }
+
+        public void setPlace(Integer place) {
+                this.place = place;
+        }
+
+        public String getAward() {
+                return award;
+        }
+
+        public void setAward(String award) {
+                this.award = award;
+        }
+}

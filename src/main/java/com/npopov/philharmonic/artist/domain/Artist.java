@@ -1,7 +1,7 @@
 package com.npopov.philharmonic.artist.domain;
 
-import com.npopov.philharmonic.event.domain.CompetitionResult;
-import com.npopov.philharmonic.event.domain.EventArtist;
+import com.npopov.philharmonic.events.competition.domain.CompetitionResult;
+import com.npopov.philharmonic.events.event.domain.EventArtist;
 import com.npopov.philharmonic.shared.domain.Auditable;
 import com.npopov.philharmonic.shared.domain.HasId;
 import jakarta.persistence.*;

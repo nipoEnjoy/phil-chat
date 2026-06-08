@@ -17,7 +17,7 @@ public class JpaCrudService<T, ID> implements CrudService<T, ID> {
     }
 
     @Override
-    public List<T> findAll() {
+    public List<T> getAll() {
         return repository.findAll();
     }
 
