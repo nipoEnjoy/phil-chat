@@ -60,6 +60,34 @@ EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar", "--debug"]
 
 
+===== Query.sql =====
+-- Добавить DEFAULT, если его нет
+ALTER TABLE role ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE role ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP;
+
+-- Обновить существующие NULL значения (если они есть)
+UPDATE role SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL;
+UPDATE role SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL;
+
+-- Аналогично для user_table
+ALTER TABLE user_table ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE user_table ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP;
+UPDATE user_table SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL;
+UPDATE user_table SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL;
+
+-- Теперь вставка роли сработает, если она отсутствует
+INSERT INTO role (name, description) VALUES
+                                         ('USER', 'Обычный пользователь - только чтение'),
+                                         ('ADMIN', 'Администратор – создание и редактирование');
+
+-- Назначить роль пользователю (если ещё не назначена)
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id
+FROM user_table u, role r
+WHERE u.username = 'user1' AND r.name = 'USER'
+ON CONFLICT DO NOTHING;
+
+
 ===== README.md =====
 # Philharmonic Project
 
@@ -449,6 +477,30 @@ All endpoints return standardized error responses:
   "details": null
 }
 ```
+
+
+===== collect.sh =====
+#!/bin/bash
+OUTPUT="project_dump.txt"
+> "$OUTPUT"
+
+# Исключаем бинарные, служебные и Maven Wrapper
+EXCLUDE_PATTERNS="\.git$|\.git/|/target/|/build/|\.idea/|\.mvn/|/mvnw$|/mvnw\.cmd$|/\.mvn/|/\.DS_Store"
+
+if command -v git &> /dev/null && [ -d .git ]; then
+    FILES=$(git ls-files | grep -vE "$EXCLUDE_PATTERNS")
+else
+    FILES=$(find . -type f -not -path './.git/*' -not -path './target/*' -not -path './build/*' -not -path './.idea/*' -not -path './.mvn/*' -not -name 'mvnw' -not -name 'mvnw.cmd' -not -name '.DS_Store')
+fi
+
+echo "$FILES" | while IFS= read -r file; do
+    echo "===== $file =====" >> "$OUTPUT"
+    cat "$file" >> "$OUTPUT"
+    echo -e "\n\n" >> "$OUTPUT"
+done
+
+echo "Сохранено в $OUTPUT (Maven Wrapper исключён)"
+
 
 
 ===== curl-examples.md =====
@@ -1443,6 +1495,10 @@ Write-Output "MVN_CMD=$MAVEN_HOME/bin/$MVN_CMD"
 
 
 
+===== project_dump.txt =====
+
+
+
 ===== src/main/java/com/npopov/philharmonic/PhilharmonicApplication.java =====
 package com.npopov.philharmonic;
 
@@ -1555,11 +1611,14 @@ package com.npopov.philharmonic.artist.domain;
 
 import com.npopov.philharmonic.events.competition.domain.CompetitionResult;
 import com.npopov.philharmonic.events.event.domain.EventArtist;
+import com.npopov.philharmonic.genre.domain.Genre;
 import com.npopov.philharmonic.shared.domain.Auditable;
 import com.npopov.philharmonic.shared.domain.HasId;
 import jakarta.persistence.*;
 
+import java.util.Collections;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "artist")
@@ -1601,6 +1660,33 @@ public class Artist extends Auditable implements HasId<Long> {
         this.lastName = lastName;
         this.stageName = stageName;
         this.contactInfo = contactInfo;
+    }
+
+    public Set<Genre> getGenres() {
+        if (artistGenres == null || artistGenres.isEmpty()) {
+            return Collections.emptySet();
+        }
+        return artistGenres.stream()
+                .map(ArtistGenre::getGenre)
+                .collect(Collectors.toSet());
+    }
+
+    public void addGenre(Genre genre) {
+        if (artistGenres == null) {
+            artistGenres = new java.util.HashSet<>();
+        }
+        boolean exists = artistGenres.stream()
+                .anyMatch(ag -> ag.getGenre().getId().equals(genre.getId()));
+        if (!exists) {
+            ArtistGenre link = new ArtistGenre(this, genre);
+            artistGenres.add(link);
+        }
+    }
+
+    public void removeGenre(Genre genre) {
+        if (artistGenres != null) {
+            artistGenres.removeIf(ag -> ag.getGenre().getId().equals(genre.getId()));
+        }
     }
 
     public Long getId() {
@@ -1885,13 +1971,24 @@ public class ArtistCreateRequest {
 package com.npopov.philharmonic.artist.dto;
 
 import com.npopov.philharmonic.artist.domain.Artist;
+import com.npopov.philharmonic.genre.domain.Genre;
+import com.npopov.philharmonic.genre.dto.GenreResponse;
+import com.npopov.philharmonic.genre.repository.GenreRepository;
 import com.npopov.philharmonic.identity.user.domain.User;
 import com.npopov.philharmonic.identity.user.dto.UserResponse;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
+import java.util.stream.Collectors;
+
 @Component
 public class ArtistMapper {
-    private ArtistMapper() {}
+
+    private final GenreRepository genreRepository;
+
+    private ArtistMapper(GenreRepository genreRepository) {
+        this.genreRepository = genreRepository;
+    }
 
     public Artist toArtistFromCreate(ArtistCreateRequest request) {
         if (request == null) return new Artist();
@@ -1915,14 +2012,33 @@ public class ArtistMapper {
 
     public ArtistResponse toResponse(Artist artist) {
         if (artist == null) return null;
-        return new ArtistResponse(
+        ArtistResponse response =  new ArtistResponse(
                 artist.getId(),
                 artist.getFirstName(),
                 artist.getLastName(),
                 artist.getStageName(),
                 artist.getContactInfo(),
+                null,
                 artist.getCreatedAt(),
                 artist.getUpdatedAt()
+        );
+        if (artist.getGenres() != null && !artist.getGenres().isEmpty()) {
+            response.setGenres(artist.getGenres().stream()
+                    .map(this::toGenreResponse)
+                    .collect(Collectors.toList()));
+        } else {
+            response.setGenres(Collections.emptyList());
+        }
+        return response;
+    }
+
+    private GenreResponse toGenreResponse(Genre genre) {
+        return new GenreResponse(
+                genre.getId(),
+                genre.getName(),
+                genre.getDescription(),
+                genre.getCreatedAt(),
+                genre.getUpdatedAt()
         );
     }
 }
@@ -1932,7 +2048,10 @@ public class ArtistMapper {
 ===== src/main/java/com/npopov/philharmonic/artist/dto/ArtistResponse.java =====
 package com.npopov.philharmonic.artist.dto;
 
+import com.npopov.philharmonic.genre.dto.GenreResponse;
+
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class ArtistResponse {
     private Long id;
@@ -1940,17 +2059,19 @@ public class ArtistResponse {
     private String lastName;
     private String stageName;
     private String contactInfo;
+    private List<GenreResponse> genres;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     public ArtistResponse() {}
 
-    public ArtistResponse(Long id, String firstName, String lastName, String stageName, String contactInfo, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public ArtistResponse(Long id, String firstName, String lastName, String stageName, String contactInfo, List<GenreResponse> genres, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
         this.stageName = stageName;
         this.contactInfo = contactInfo;
+        this.genres = genres;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -1993,6 +2114,14 @@ public class ArtistResponse {
 
     public void setContactInfo(String contactInfo) {
         this.contactInfo = contactInfo;
+    }
+
+    public List<GenreResponse> getGenres() {
+        return genres;
+    }
+
+    public void setGenres(List<GenreResponse> genres) {
+        this.genres = genres;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -2082,8 +2211,11 @@ package com.npopov.philharmonic.artist.repository;
 import com.npopov.philharmonic.artist.domain.Artist;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface ArtistRepository extends JpaRepository<Artist, Long> {
     List<Artist> findByArtistGenres_Genre_Name(String genreName);
@@ -2091,6 +2223,25 @@ public interface ArtistRepository extends JpaRepository<Artist, Long> {
 
     @Query("SELECT a FROM Artist a WHERE SIZE(a.artistGenres) > 1")
     List<Artist> findArtistsWithMultipleGenres();
+
+    // Artist with no competitions in period
+    @Query("SELECT a FROM Artist a " +
+            "WHERE a.id NOT IN " +
+            "(SELECT cr.artist.id FROM CompetitionResult " +
+            "cr WHERE cr.competition.startDatetime BETWEEN :start AND :end)")
+    List<Artist> findArtistsWithoutCompetitionsInPeriod(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // Find by genres
+    @Query("SELECT DISTINCT a FROM Artist a " +
+            "LEFT JOIN FETCH a.artistGenres ag " +
+            "LEFT JOIN FETCH ag.genre " +
+            "WHERE a.id = :id")
+    Optional<Artist> findByIdWithGenres(Long id);
+
+    @Query("SELECT DISTINCT a FROM Artist a " +
+            "LEFT JOIN FETCH a.artistGenres ag " +
+            "LEFT JOIN FETCH ag.genre")
+    List<Artist> findAllWithGenres();
 }
 
 
@@ -2108,6 +2259,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class ArtistService extends JpaCrudService<Artist, Long> {
@@ -2117,6 +2269,17 @@ public class ArtistService extends JpaCrudService<Artist, Long> {
     public ArtistService(ArtistRepository repository) {
         super(repository);
         this.repository = repository;
+    }
+
+    @Override
+    @Transactional
+    public Optional<Artist> findById(Long id) {
+        return repository.findByIdWithGenres(id);
+    }
+
+    @Transactional
+    public List<Artist> findAll() {
+        return repository.findAllWithGenres();
     }
 
     public List<Artist> findByGenre(String genreName) {
@@ -2205,58 +2368,67 @@ public class CompetitionController {
 package com.npopov.philharmonic.events.competition.controller;
 
 import com.npopov.philharmonic.events.competition.domain.CompetitionResult;
+import com.npopov.philharmonic.events.competition.dto.CompetitionResultCreateRequest;
+import com.npopov.philharmonic.events.competition.dto.CompetitionResultMapper;
+import com.npopov.philharmonic.events.competition.dto.CompetitionResultResponse;
+import com.npopov.philharmonic.events.competition.dto.CompetitionResultUpdateRequest;
 import com.npopov.philharmonic.events.competition.service.CompetitionResultService;
+import com.npopov.philharmonic.shared.controller.GenericRestController;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/competition-results")
+@RequestMapping("/api/events/competition/results")
 public class CompetitionResultController {
 
+    private final GenericRestController<CompetitionResult, Long,
+            CompetitionResultResponse, CompetitionResultCreateRequest, CompetitionResultUpdateRequest> genericController;
     private final CompetitionResultService competitionResultService;
+    private final CompetitionResultMapper competitionResultMapper;
 
-    public CompetitionResultController(CompetitionResultService competitionResultService) {
+    public CompetitionResultController(CompetitionResultService competitionResultService, CompetitionResultMapper competitionResultMapper) {
         this.competitionResultService = competitionResultService;
+        this.competitionResultMapper = competitionResultMapper;
+        this.genericController = new GenericRestController<>(
+                competitionResultService,
+                competitionResultMapper::toResponse,
+                competitionResultMapper::toCompetitionResultFromCreate,
+                (id, req) -> {
+                    CompetitionResult competitionResult = competitionResultMapper.toCompetitionResultFromUpdate(req);
+                    competitionResult.setId(id);
+                    return competitionResult;
+                }
+        );
     }
 
     @GetMapping
-    public List<CompetitionResult> getAllCompetitionResults(@RequestParam(required = false) Long competitionId) {
-        if (competitionId != null) {
-            return competitionResultService.findByCompetition(competitionId);
-        }
-        return competitionResultService.findAll();
+    public ResponseEntity<List<CompetitionResultResponse>> getAll(@RequestParam(required = false) Long competitionId) {
+        return ResponseEntity.ok(genericController.getAll());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CompetitionResult> getCompetitionResultById(@PathVariable Long id) {
-        return competitionResultService.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<CompetitionResultResponse> getById(@PathVariable Long id) {
+        return genericController.getById(id);
     }
 
     @PostMapping
-    public CompetitionResult createCompetitionResult(@RequestBody CompetitionResult competitionResult) {
-        return competitionResultService.save(competitionResult);
+    public ResponseEntity<CompetitionResultResponse> createCompetitionResult(@Valid @RequestBody CompetitionResultCreateRequest request) {
+        return genericController.create(request);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<CompetitionResult> updateCompetitionResult(@PathVariable Long id, @RequestBody CompetitionResult competitionResult) {
-        if (!competitionResultService.findById(id).isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
-        competitionResult.setId(id);
-        return ResponseEntity.ok(competitionResultService.save(competitionResult));
+    public ResponseEntity<CompetitionResultResponse> updateCompetitionResult(
+            @PathVariable Long id,
+            @Valid @RequestBody CompetitionResultUpdateRequest request) {
+        return genericController.update(id, request);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCompetitionResult(@PathVariable Long id) {
-        if (!competitionResultService.findById(id).isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
-        competitionResultService.deleteById(id);
-        return ResponseEntity.noContent().build();
+        return genericController.delete(id);
     }
 }
 
@@ -2361,14 +2533,14 @@ public class CompetitionResult extends Auditable implements HasId<Long> {
     private Artist artist;
 
     @Column(name = "place")
-    private Integer place;
+    private Long place;
 
     @Column(name = "award")
     private String award;
 
     public CompetitionResult() {}
 
-    public CompetitionResult(Competition competition, Artist artist, Integer place, String award) {
+    public CompetitionResult(Competition competition, Artist artist, Long place, String award) {
         this.competition = competition;
         this.artist = artist;
         this.place = place;
@@ -2399,11 +2571,11 @@ public class CompetitionResult extends Auditable implements HasId<Long> {
         this.artist = artist;
     }
 
-    public Integer getPlace() {
+    public Long getPlace() {
         return place;
     }
 
-    public void setPlace(Integer place) {
+    public void setPlace(Long place) {
         this.place = place;
     }
 
@@ -2610,19 +2782,19 @@ public class CompetitionResultCreateRequest {
         @NotNull(message = "Artist ID is required")
         Long artistId;
 
-        Integer place;
+        Long place;
 
         @Size(max = 200, message = "Award must not exceed 200 characters")
         String award;
 
-        public CompetitionResultCreateRequest(Long competitionId, Long artistId, Integer place, String award) {
+        public CompetitionResultCreateRequest(Long competitionId, Long artistId, Long place, String award) {
                 this.competitionId = competitionId;
                 this.artistId = artistId;
                 this.place = place;
                 this.award = award;
         }
 
-        public CompetitionResultCreateRequest(Long artistId, Integer place, String award) {
+        public CompetitionResultCreateRequest(Long artistId, Long place, String award) {
                 this.artistId = artistId;
                 this.place = place;
                 this.award = award;
@@ -2646,11 +2818,11 @@ public class CompetitionResultCreateRequest {
                 this.artistId = artistId;
         }
 
-        public Integer getPlace() {
+        public Long getPlace() {
                 return place;
         }
 
-        public void setPlace(Integer place) {
+        public void setPlace(Long place) {
                 this.place = place;
         }
 
@@ -2664,6 +2836,58 @@ public class CompetitionResultCreateRequest {
 }
 
 
+===== src/main/java/com/npopov/philharmonic/events/competition/dto/CompetitionResultMapper.java =====
+package com.npopov.philharmonic.events.competition.dto;
+
+import com.npopov.philharmonic.artist.repository.ArtistRepository;
+import com.npopov.philharmonic.events.competition.domain.CompetitionResult;
+import com.npopov.philharmonic.events.competition.repository.CompetitionRepository;
+import org.springframework.stereotype.Component;
+
+@Component
+public class CompetitionResultMapper {
+
+    private final CompetitionRepository competitionRepository;
+    private final ArtistRepository artistRepository;
+
+    public CompetitionResultMapper(CompetitionRepository competitionRepository, ArtistRepository artistRepository) {
+        this.competitionRepository = competitionRepository;
+        this.artistRepository = artistRepository;
+    }
+
+    public CompetitionResult toCompetitionResultFromCreate(CompetitionResultCreateRequest request) {
+        return new CompetitionResult(
+                competitionRepository.getReferenceById(request.getCompetitionId()),
+                artistRepository.getReferenceById(request.getArtistId()),
+                request.getPlace(),
+                request.getAward()
+        );
+    }
+
+    public CompetitionResult toCompetitionResultFromUpdate(CompetitionResultUpdateRequest request) {
+        return new CompetitionResult(
+                competitionRepository.getReferenceById(request.getCompetitionId()),
+                artistRepository.getReferenceById(request.getArtistId()),
+                request.getPlace(),
+                request.getAward()
+        );
+    }
+
+    public CompetitionResultResponse toResponse(CompetitionResult competitionResult) {
+        return new CompetitionResultResponse(
+                competitionResult.getId(),
+                competitionResult.getCompetition().getId(),
+                competitionResult.getArtist().getId(),
+                competitionResult.getPlace(),
+                competitionResult.getAward(),
+                competitionResult.getCreatedAt(),
+                competitionResult.getUpdatedAt()
+        );
+    }
+}
+
+
+
 ===== src/main/java/com/npopov/philharmonic/events/competition/dto/CompetitionResultResponse.java =====
 package com.npopov.philharmonic.events.competition.dto;
 
@@ -2673,22 +2897,13 @@ public class CompetitionResultResponse {
     private Long id;
     private Long competitionId;
     private Long artistId;
-    private Integer place;
+    private Long place;
     private String award;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public CompetitionResultResponse(Long id, Long competitionId, Long artistId, Integer place, String award, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public CompetitionResultResponse(Long id, Long competitionId, Long artistId, Long place, String award, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
-        this.competitionId = competitionId;
-        this.artistId = artistId;
-        this.place = place;
-        this.award = award;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
-    }
-
-    public CompetitionResultResponse(Long competitionId, Long artistId, Integer place, String award, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.competitionId = competitionId;
         this.artistId = artistId;
         this.place = place;
@@ -2723,11 +2938,11 @@ public class CompetitionResultResponse {
         this.artistId = artistId;
     }
 
-    public Integer getPlace() {
+    public Long getPlace() {
         return place;
     }
 
-    public void setPlace(Integer place) {
+    public void setPlace(Long place) {
         this.place = place;
     }
 
@@ -2754,6 +2969,73 @@ public class CompetitionResultResponse {
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
+}
+
+
+===== src/main/java/com/npopov/philharmonic/events/competition/dto/CompetitionResultUpdateRequest.java =====
+package com.npopov.philharmonic.events.competition.dto;
+
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
+public class CompetitionResultUpdateRequest {
+        @NotNull(message = "Competition ID is required")
+        Long competitionId;
+
+        @NotNull(message = "Artist ID is required")
+        Long artistId;
+
+        Long place;
+
+        @Size(max = 200, message = "Award must not exceed 200 characters")
+        String award;
+
+        public CompetitionResultUpdateRequest(Long competitionId, Long artistId, Long place, String award) {
+                this.competitionId = competitionId;
+                this.artistId = artistId;
+                this.place = place;
+                this.award = award;
+        }
+
+        public CompetitionResultUpdateRequest(Long artistId, Long place, String award) {
+                this.artistId = artistId;
+                this.place = place;
+                this.award = award;
+        }
+
+        public CompetitionResultUpdateRequest() {}
+
+        public Long getCompetitionId() {
+                return competitionId;
+        }
+
+        public void setCompetitionId(Long competitionId) {
+                this.competitionId = competitionId;
+        }
+
+        public Long getArtistId() {
+                return artistId;
+        }
+
+        public void setArtistId(Long artistId) {
+                this.artistId = artistId;
+        }
+
+        public Long getPlace() {
+                return place;
+        }
+
+        public void setPlace(Long place) {
+                this.place = place;
+        }
+
+        public String getAward() {
+                return award;
+        }
+
+        public void setAward(String award) {
+                this.award = award;
+        }
 }
 
 
@@ -3839,6 +4121,77 @@ public abstract class EventCreateRequest {
 }
 
 
+===== src/main/java/com/npopov/philharmonic/events/event/dto/EventMapper.java =====
+package com.npopov.philharmonic.events.event.dto;
+
+import com.npopov.philharmonic.events.event.domain.Event;
+import com.npopov.philharmonic.organizer.domain.Organizer;
+import com.npopov.philharmonic.organizer.repository.OrganizerRepository;
+import com.npopov.philharmonic.venues.venue.domain.Venue;
+import com.npopov.philharmonic.venues.venue.repository.VenueRepository;
+import org.springframework.stereotype.Component;
+
+@Component
+public class EventMapper {
+
+    private final VenueRepository venueRepository;
+    private final OrganizerRepository organizerRepository;
+
+    public EventMapper(VenueRepository venueRepository, OrganizerRepository organizerRepository) {
+        this.venueRepository = venueRepository;
+        this.organizerRepository = organizerRepository;
+    }
+
+    public Event toEventFromCreate(EventCreateRequest request) {
+        Venue venue = venueRepository.getReferenceById(request.getVenueId());
+        Organizer organizer = request.getOrganizerId() != null
+                ? organizerRepository.getReferenceById(request.getOrganizerId())
+                : null;
+
+        return new Event(
+                request.getTitle(),
+                venue,
+                organizer,
+                request.getStartDatetime(),
+                request.getEndDatetime(),
+                request.getDescription()
+        );
+    }
+
+    public Event toEventFromUpdate(EventUpdateRequest request) {
+        Venue venue = venueRepository.getReferenceById(request.getVenueId());
+        Organizer organizer = request.getOrganizerId() != null
+                ? organizerRepository.getReferenceById(request.getOrganizerId())
+                : null;
+
+        return new Event(
+                request.getTitle(),
+                venue,
+                organizer,
+                request.getStartDatetime(),
+                request.getEndDatetime(),
+                request.getDescription()
+        );
+    }
+
+    public EventResponse toResponse(Event event) {
+        return new EventResponse(
+                event.getId(),
+                event.getTitle(),
+                event.getVenue().getId(),
+                event.getVenue().getName(),
+                event.getOrganizer().getId(),
+                event.getOrganizer().getName(),
+                event.getStartDatetime(),
+                event.getEndDatetime(),
+                event.getDescription(),
+                event.getCreatedAt(),
+                event.getUpdatedAt()
+        );
+    }
+}
+
+
 ===== src/main/java/com/npopov/philharmonic/events/event/dto/EventResponse.java =====
 package com.npopov.philharmonic.events.event.dto;
 
@@ -4101,6 +4454,8 @@ package com.npopov.philharmonic.events.event.repository;
 
 import com.npopov.philharmonic.events.event.domain.Event;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -4109,6 +4464,19 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     List<Event> findByStartDatetimeBetween(LocalDateTime start, LocalDateTime end);
     List<Event> findByOrganizer_Id(Long organizerId);
     List<Event> findByVenue_Id(Long venueId);
+
+    @Query("SELECT e.organizer.id, e.organizer.name, " +
+            "COUNT(e) FROM Event e " +
+            "WHERE e.eventType = 'CONCERT' " +
+            "AND e.startDatetime BETWEEN :start AND :end " +
+            "GROUP BY e.organizer.id, e.organizer.name")
+    List<Object[]> countConcertsByOrganizerInPeriod(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    @Query("SELECT v.id, v.name, e.id, e.title, e.startDatetime " +
+            "FROM Venue v JOIN v.events e " +
+            "WHERE e.startDatetime BETWEEN :start AND :end " +
+            "ORDER BY v.id, e.startDatetime")
+    List<Object[]> findVenuesWithEventsInPeriod(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }
 
 
@@ -4246,6 +4614,83 @@ public class EventService extends JpaCrudService<Event, Long> {
 }
 
 
+===== src/main/java/com/npopov/philharmonic/events/festival/controller/FestivalController.java =====
+package com.npopov.philharmonic.events.festival.controller;
+
+import com.npopov.philharmonic.events.concert.dto.ConcertCreateRequest;
+import com.npopov.philharmonic.events.concert.dto.ConcertResponse;
+import com.npopov.philharmonic.events.concert.dto.ConcertUpdateRequest;
+import com.npopov.philharmonic.events.festival.domain.Festival;
+import com.npopov.philharmonic.events.festival.dto.FestivalCreateRequest;
+import com.npopov.philharmonic.events.festival.dto.FestivalMapper;
+import com.npopov.philharmonic.events.festival.dto.FestivalResponse;
+import com.npopov.philharmonic.events.festival.dto.FestivalUpdateRequest;
+import com.npopov.philharmonic.events.festival.service.FestivalService;
+import com.npopov.philharmonic.shared.controller.GenericRestController;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/events/festival")
+public class FestivalController {
+
+    private final GenericRestController<Festival, Long,
+            FestivalResponse, FestivalCreateRequest, FestivalUpdateRequest> genericController;
+    private final FestivalService festivalService;
+    private final FestivalMapper festivalMapper;
+
+    public FestivalController(FestivalService festivalService, FestivalMapper festivalMapper) {
+        this.festivalService = festivalService;
+        this.festivalMapper = festivalMapper;
+        this.genericController = new GenericRestController<>(
+                festivalService,
+                festivalMapper::toResponse,
+                festivalMapper::toFestivalFromCreate,
+                (id, req) -> {
+                    Festival festival = festivalMapper.toFestivalFromUpdate(req);
+                    festival.setId(id);
+                    return festival;
+                }
+        );
+    }
+
+
+    @GetMapping
+    public List<FestivalResponse> getAll() {
+        return genericController.getAll();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<FestivalResponse> getById(@PathVariable Long id) {
+        return genericController.getById(id);
+    }
+
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
+    public ResponseEntity<FestivalResponse> create(@RequestBody FestivalCreateRequest request) {
+        return genericController.create(request);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
+    public ResponseEntity<FestivalResponse> update(
+            @PathVariable Long id,
+            @RequestBody FestivalUpdateRequest request) {
+        return genericController.update(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SUPERADMIN')")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        return genericController.delete(id);
+    }
+}
+
+
+
 ===== src/main/java/com/npopov/philharmonic/events/festival/domain/Festival.java =====
 package com.npopov.philharmonic.events.festival.domain;
 
@@ -4274,6 +4719,138 @@ public class Festival extends Event {
 
 
 
+===== src/main/java/com/npopov/philharmonic/events/festival/dto/FestivalCreateRequest.java =====
+package com.npopov.philharmonic.events.festival.dto;
+
+import com.npopov.philharmonic.events.event.dto.EventCreateRequest;
+
+import java.time.LocalDateTime;
+
+public class FestivalCreateRequest extends EventCreateRequest {
+
+    public FestivalCreateRequest(String title, Long venueId, Long organizerId, LocalDateTime startDatetime, LocalDateTime endDatetime, String description) {
+        super(title, venueId, organizerId, startDatetime, endDatetime, description);
+    }
+
+    public FestivalCreateRequest() {
+    }
+}
+
+
+
+===== src/main/java/com/npopov/philharmonic/events/festival/dto/FestivalMapper.java =====
+package com.npopov.philharmonic.events.festival.dto;
+
+import com.npopov.philharmonic.events.event.domain.EventType;
+import com.npopov.philharmonic.events.festival.domain.Festival;
+import com.npopov.philharmonic.organizer.domain.Organizer;
+import com.npopov.philharmonic.organizer.repository.OrganizerRepository;
+import com.npopov.philharmonic.venues.venue.domain.Venue;
+import com.npopov.philharmonic.venues.venue.repository.VenueRepository;
+import org.springframework.stereotype.Component;
+
+@Component
+public class FestivalMapper {
+
+    private final VenueRepository venueRepository;
+    private final OrganizerRepository organizerRepository;
+
+    public FestivalMapper(VenueRepository venueRepository, OrganizerRepository organizerRepository) {
+        this.venueRepository = venueRepository;
+        this.organizerRepository = organizerRepository;
+    }
+
+    public Festival toFestivalFromCreate(FestivalCreateRequest request) {
+        Venue venue = venueRepository.getReferenceById(request.getVenueId());
+        Organizer organizer = request.getOrganizerId() != null
+                ? organizerRepository.getReferenceById(request.getOrganizerId())
+                : null;
+
+        return new Festival(
+                request.getTitle(),
+                venue,
+                organizer,
+                request.getStartDatetime(),
+                request.getEndDatetime(),
+                request.getDescription()
+        );
+    }
+
+    public Festival toFestivalFromUpdate(FestivalUpdateRequest request) {
+        Venue venue = venueRepository.getReferenceById(request.getVenueId());
+        Organizer organizer = request.getOrganizerId() != null
+                ? organizerRepository.getReferenceById(request.getOrganizerId())
+                : null;
+
+        return new Festival(
+                request.getTitle(),
+                venue,
+                organizer,
+                request.getStartDatetime(),
+                request.getEndDatetime(),
+                request.getDescription()
+        );
+    }
+
+    public FestivalResponse toResponse(Festival festival) {
+        FestivalResponse response = new FestivalResponse(
+                festival.getId(),
+                festival.getTitle(),
+                festival.getVenue().getId(),
+                festival.getVenue().getName(),
+                festival.getOrganizer().getId(),
+                festival.getOrganizer().getName(),
+                festival.getStartDatetime(),
+                festival.getEndDatetime(),
+                festival.getDescription(),
+                festival.getCreatedAt(),
+                festival.getUpdatedAt()
+        );
+        response.setEventType(EventType.FESTIVAL);
+        return response;
+    }
+}
+
+
+===== src/main/java/com/npopov/philharmonic/events/festival/dto/FestivalResponse.java =====
+package com.npopov.philharmonic.events.festival.dto;
+
+import com.npopov.philharmonic.events.event.dto.EventResponse;
+
+import java.time.LocalDateTime;
+
+public class FestivalResponse extends EventResponse {
+
+    public FestivalResponse(Long id, String title, Long venueId, String venueName, Long organizerId, String organizerName, LocalDateTime startDatetime, LocalDateTime endDatetime, String description, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        super(id, title, venueId, venueName, organizerId, organizerName, startDatetime, endDatetime, description, createdAt, updatedAt);
+    }
+
+    public FestivalResponse() {
+    }
+
+}
+
+
+
+===== src/main/java/com/npopov/philharmonic/events/festival/dto/FestivalUpdateRequest.java =====
+package com.npopov.philharmonic.events.festival.dto;
+
+import com.npopov.philharmonic.events.event.dto.EventCreateRequest;
+import com.npopov.philharmonic.events.event.dto.EventUpdateRequest;
+
+import java.time.LocalDateTime;
+
+public class FestivalUpdateRequest extends EventUpdateRequest {
+
+    public FestivalUpdateRequest(String title, Long venueId, Long organizerId, LocalDateTime startDatetime, LocalDateTime endDatetime, String description) {
+        super(title, venueId, organizerId, startDatetime, endDatetime, description);
+    }
+
+    public FestivalUpdateRequest() {
+    }
+}
+
+
 ===== src/main/java/com/npopov/philharmonic/events/festival/repository/FestivalRepository.java =====
 package com.npopov.philharmonic.events.festival.repository;
 
@@ -4281,6 +4858,28 @@ import com.npopov.philharmonic.events.festival.domain.Festival;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface FestivalRepository extends JpaRepository<Festival, Long> {
+}
+
+
+
+===== src/main/java/com/npopov/philharmonic/events/festival/service/FestivalService.java =====
+package com.npopov.philharmonic.events.festival.service;
+
+import com.npopov.philharmonic.events.festival.domain.Festival;
+import com.npopov.philharmonic.events.festival.repository.FestivalRepository;
+import com.npopov.philharmonic.shared.service.JpaCrudService;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Service;
+
+@Service
+public class FestivalService extends JpaCrudService<Festival, Long> {
+
+    private final FestivalRepository festivalRepository;
+
+    public FestivalService(FestivalRepository festivalRepository) {
+        super(festivalRepository);
+        this.festivalRepository = festivalRepository;
+    }
 }
 
 
@@ -4531,6 +5130,80 @@ public class OtherEventService extends JpaCrudService<OtherEvent, Long> {
 
 
 
+===== src/main/java/com/npopov/philharmonic/events/solo/controller/SoloController.java =====
+package com.npopov.philharmonic.events.solo.controller;
+
+import com.npopov.philharmonic.events.solo.domain.Solo;
+import com.npopov.philharmonic.events.solo.dto.SoloCreateRequest;
+import com.npopov.philharmonic.events.solo.dto.SoloMapper;
+import com.npopov.philharmonic.events.solo.dto.SoloResponse;
+import com.npopov.philharmonic.events.solo.dto.SoloUpdateRequest;
+import com.npopov.philharmonic.events.solo.service.SoloService;
+import com.npopov.philharmonic.shared.controller.GenericRestController;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/events/solo")
+public class SoloController {
+
+    private final GenericRestController<Solo, Long,
+            SoloResponse, SoloCreateRequest, SoloUpdateRequest> genericController;
+    private final SoloService soloService;
+    private final SoloMapper soloMapper;
+
+    public SoloController(SoloService soloService, SoloMapper soloMapper) {
+        this.soloService = soloService;
+        this.soloMapper = soloMapper;
+        this.genericController = new GenericRestController<>(
+                soloService,
+                soloMapper::toResponse,
+                soloMapper::toSoloFromCreate,
+                (id, req) -> {
+                    Solo solo = soloMapper.toSoloFromUpdate(req);
+                    solo.setId(id);
+                    return solo;
+                }
+        );
+    }
+
+
+    @GetMapping
+    public List<SoloResponse> getAll() {
+        return genericController.getAll();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<SoloResponse> getById(@PathVariable Long id) {
+        return genericController.getById(id);
+    }
+
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
+    public ResponseEntity<SoloResponse> create(@RequestBody SoloCreateRequest request) {
+        return genericController.create(request);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
+    public ResponseEntity<SoloResponse> update(
+            @PathVariable Long id,
+            @RequestBody SoloUpdateRequest request) {
+        return genericController.update(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SUPERADMIN')")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        return genericController.delete(id);
+    }
+}
+
+
+
 ===== src/main/java/com/npopov/philharmonic/events/solo/domain/Solo.java =====
 package com.npopov.philharmonic.events.solo.domain;
 
@@ -4557,6 +5230,136 @@ public class Solo extends Event {
 
 
 
+===== src/main/java/com/npopov/philharmonic/events/solo/dto/SoloCreateRequest.java =====
+package com.npopov.philharmonic.events.solo.dto;
+
+import com.npopov.philharmonic.events.event.dto.EventCreateRequest;
+
+import java.time.LocalDateTime;
+
+public class SoloCreateRequest extends EventCreateRequest {
+
+    public SoloCreateRequest() {
+    }
+
+    public SoloCreateRequest(String title, Long venueId, Long organizerId, LocalDateTime startDatetime, LocalDateTime endDatetime, String description) {
+        super(title, venueId, organizerId, startDatetime, endDatetime, description);
+    }
+}
+
+
+===== src/main/java/com/npopov/philharmonic/events/solo/dto/SoloMapper.java =====
+package com.npopov.philharmonic.events.solo.dto;
+
+import com.npopov.philharmonic.events.event.domain.EventType;
+import com.npopov.philharmonic.events.solo.domain.Solo;
+import com.npopov.philharmonic.organizer.domain.Organizer;
+import com.npopov.philharmonic.organizer.repository.OrganizerRepository;
+import com.npopov.philharmonic.venues.venue.domain.Venue;
+import com.npopov.philharmonic.venues.venue.repository.VenueRepository;
+import org.springframework.stereotype.Component;
+
+@Component
+public class SoloMapper {
+
+    private final VenueRepository venueRepository;
+    private final OrganizerRepository organizerRepository;
+
+    public SoloMapper(VenueRepository venueRepository, OrganizerRepository organizerRepository) {
+        this.venueRepository = venueRepository;
+        this.organizerRepository = organizerRepository;
+    }
+
+    public Solo toSoloFromCreate(SoloCreateRequest request) {
+        Venue venue = venueRepository.getReferenceById(request.getVenueId());
+        Organizer organizer = request.getOrganizerId() != null
+                ? organizerRepository.getReferenceById(request.getOrganizerId())
+                : null;
+
+        return new Solo(
+                request.getTitle(),
+                venue,
+                organizer,
+                request.getStartDatetime(),
+                request.getEndDatetime(),
+                request.getDescription()
+        );
+    }
+
+    public Solo toSoloFromUpdate(SoloUpdateRequest request) {
+        Venue venue = venueRepository.getReferenceById(request.getVenueId());
+        Organizer organizer = request.getOrganizerId() != null
+                ? organizerRepository.getReferenceById(request.getOrganizerId())
+                : null;
+
+        return new Solo(
+                request.getTitle(),
+                venue,
+                organizer,
+                request.getStartDatetime(),
+                request.getEndDatetime(),
+                request.getDescription()
+        );
+    }
+
+    public SoloResponse toResponse(Solo solo) {
+        SoloResponse response =  new SoloResponse(
+                solo.getId(),
+                solo.getTitle(),
+                solo.getVenue().getId(),
+                solo.getVenue().getName(),
+                solo.getOrganizer().getId(),
+                solo.getOrganizer().getName(),
+                solo.getStartDatetime(),
+                solo.getEndDatetime(),
+                solo.getDescription(),
+                solo.getCreatedAt(),
+                solo.getUpdatedAt()
+        );
+        response.setEventType(EventType.SOLO);
+        return response;
+    }
+}
+
+
+===== src/main/java/com/npopov/philharmonic/events/solo/dto/SoloResponse.java =====
+package com.npopov.philharmonic.events.solo.dto;
+
+import com.npopov.philharmonic.events.event.dto.EventResponse;
+
+import java.time.LocalDateTime;
+
+public class SoloResponse extends EventResponse {
+
+    public SoloResponse(Long id, String title, Long venueId, String venueName, Long organizerId, String organizerName, LocalDateTime startDatetime, LocalDateTime endDatetime, String description, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        super(id, title, venueId, venueName, organizerId, organizerName, startDatetime, endDatetime, description, createdAt, updatedAt);
+    }
+
+    public SoloResponse() {
+    }
+}
+
+
+
+===== src/main/java/com/npopov/philharmonic/events/solo/dto/SoloUpdateRequest.java =====
+package com.npopov.philharmonic.events.solo.dto;
+
+import com.npopov.philharmonic.events.event.dto.EventCreateRequest;
+import com.npopov.philharmonic.events.event.dto.EventUpdateRequest;
+
+import java.time.LocalDateTime;
+
+public class SoloUpdateRequest extends EventUpdateRequest {
+
+    public SoloUpdateRequest() {
+    }
+
+    public SoloUpdateRequest(String title, Long venueId, Long organizerId, LocalDateTime startDatetime, LocalDateTime endDatetime, String description) {
+        super(title, venueId, organizerId, startDatetime, endDatetime, description);
+    }
+}
+
+
 ===== src/main/java/com/npopov/philharmonic/events/solo/repository/SoloRepository.java =====
 package com.npopov.philharmonic.events.solo.repository;
 
@@ -4564,6 +5367,28 @@ import com.npopov.philharmonic.events.solo.domain.Solo;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface SoloRepository extends JpaRepository<Solo, Long> {
+}
+
+
+
+===== src/main/java/com/npopov/philharmonic/events/solo/service/SoloService.java =====
+package com.npopov.philharmonic.events.solo.service;
+
+import com.npopov.philharmonic.events.solo.domain.Solo;
+import com.npopov.philharmonic.events.solo.repository.SoloRepository;
+import com.npopov.philharmonic.shared.service.JpaCrudService;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Service;
+
+@Service
+public class SoloService extends JpaCrudService<Solo, Long> {
+
+    private final SoloRepository soloRepository;
+
+    public SoloService(SoloRepository soloRepository) {
+        super(soloRepository);
+        this.soloRepository = soloRepository;
+    }
 }
 
 
@@ -4832,6 +5657,7 @@ public class GenreService extends JpaCrudService<Genre, Long> {
 package com.npopov.philharmonic.identity.auth.controller;
 
 import com.npopov.philharmonic.identity.auth.dto.RegisterRequest;
+import com.npopov.philharmonic.identity.role.domain.Role;
 import com.npopov.philharmonic.identity.user.dto.UserMapper;
 import com.npopov.philharmonic.identity.user.domain.User;
 import com.npopov.philharmonic.shared.security.JwtUtil;
@@ -4839,8 +5665,10 @@ import com.npopov.philharmonic.identity.user.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/auth")
@@ -4865,7 +5693,10 @@ public class AuthController {
         if (userOpt.isPresent() && userService.checkPassword(password, userOpt.get().getPassword())) {
             User user = userOpt.get();
             String token = jwtUtil.generateToken(user.getUsername(), user.getRoles());
-            return ResponseEntity.ok(Map.of("token", token, "roles", user.getRoles()));
+            List<String> roleNames = user.getRoles().stream()
+                    .map(Role::getName)
+                    .toList();
+            return ResponseEntity.ok(Map.of("token", token, "roles", roleNames));
         }
         return ResponseEntity.status(401).body("Invalid credentials");
     }
@@ -4925,8 +5756,382 @@ public record RegisterRequest (
 
 
 
-===== src/main/java/com/npopov/philharmonic/identity/user/domain/Role.java =====
+===== src/main/java/com/npopov/philharmonic/identity/role/controller/RoleController.java =====
+package com.npopov.philharmonic.identity.role.controller;
 
+import com.npopov.philharmonic.identity.role.domain.Role;
+import com.npopov.philharmonic.identity.role.dto.RoleCreateRequest;
+import com.npopov.philharmonic.identity.role.dto.RoleMapper;
+import com.npopov.philharmonic.identity.role.dto.RoleResponse;
+import com.npopov.philharmonic.identity.role.dto.RoleUpdateRequest;
+import com.npopov.philharmonic.identity.role.service.RoleService;
+import com.npopov.philharmonic.shared.controller.GenericRestController;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/roles")
+@PreAuthorize("hasRole('SUPERADMIN')")
+public class RoleController {
+
+    private final GenericRestController<Role, Long, RoleResponse, RoleCreateRequest, RoleUpdateRequest> genericController;
+
+    public RoleController(RoleService roleService, RoleMapper roleMapper) {
+        this.genericController = new GenericRestController<>(
+                roleService,
+                roleMapper::toResponse,
+                roleMapper::toRoleFromCreate,
+                (id, req) -> {
+                    Role role = roleMapper.toRoleFromUpdate(req);
+                    role.setId(id);
+                    return role;
+                }
+        );
+    }
+
+    @GetMapping
+    public List<RoleResponse> getAll() {
+        return genericController.getAll();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<RoleResponse> getById(@PathVariable Long id) {
+        return genericController.getById(id);
+    }
+
+    @PostMapping
+    public ResponseEntity<RoleResponse> create(@Valid @RequestBody RoleCreateRequest request) {
+        return genericController.create(request);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<RoleResponse> update(@PathVariable Long id, @Valid @RequestBody RoleUpdateRequest request) {
+        return genericController.update(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        return genericController.delete(id);
+    }
+}
+
+
+===== src/main/java/com/npopov/philharmonic/identity/role/domain/Role.java =====
+package com.npopov.philharmonic.identity.role.domain;
+
+import com.npopov.philharmonic.shared.domain.Auditable;
+import com.npopov.philharmonic.shared.domain.HasId;
+import com.npopov.philharmonic.shared.domain.Permission;
+import jakarta.persistence.*;
+import java.util.Set;
+
+@Entity
+@Table(name = "role")
+public class Role extends Auditable implements HasId<Long> {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true, length = 50)
+    private String name;
+
+    @Column(length = 255)
+    private String description;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @Enumerated(EnumType.STRING)
+    @CollectionTable(name = "role_permissions", joinColumns = @JoinColumn(name = "role_id"))
+    @Column(name = "permission")
+    private Set<Permission> permissions;
+
+    public Role() {}
+
+    public Role(String name, String description, Set<Permission> permissions) {
+        this.name = name;
+        this.description = description;
+        this.permissions = permissions;
+    }
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public Set<Permission> getPermissions() { return permissions; }
+    public void setPermissions(Set<Permission> permissions) { this.permissions = permissions; }
+}
+
+
+===== src/main/java/com/npopov/philharmonic/identity/role/dto/RoleCreateRequest.java =====
+package com.npopov.philharmonic.identity.role.dto;
+
+import com.npopov.philharmonic.shared.domain.Permission;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import java.util.Set;
+
+public class RoleCreateRequest {
+
+    @NotBlank(message = "Role name cannot be blank")
+    @Size(max = 50, message = "Role name must not exceed 50 characters")
+    private String name;
+
+    @Size(max = 255, message = "Description must not exceed 255 characters")
+    private String description;
+
+    @NotNull(message = "Permissions set cannot be null")
+    private Set<Permission> permissions;
+
+    public RoleCreateRequest() {}
+
+    public RoleCreateRequest(String name, String description, Set<Permission> permissions) {
+        this.name = name;
+        this.description = description;
+        this.permissions = permissions;
+    }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public Set<Permission> getPermissions() { return permissions; }
+    public void setPermissions(Set<Permission> permissions) { this.permissions = permissions; }
+}
+
+
+===== src/main/java/com/npopov/philharmonic/identity/role/dto/RoleMapper.java =====
+package com.npopov.philharmonic.identity.role.dto;
+
+import com.npopov.philharmonic.identity.role.domain.Role;
+import org.springframework.stereotype.Component;
+
+@Component
+public class RoleMapper {
+
+    public Role toRoleFromCreate(RoleCreateRequest request) {
+        if (request == null) return new Role();
+        return new Role(
+                request.getName(),
+                request.getDescription(),
+                request.getPermissions()
+        );
+    }
+
+    public Role toRoleFromUpdate(RoleUpdateRequest request) {
+        if (request == null) return new Role();
+        return new Role(
+                request.getName(),
+                request.getDescription(),
+                request.getPermissions()
+        );
+    }
+
+    public RoleResponse toResponse(Role role) {
+        if (role == null) return null;
+        return new RoleResponse(
+                role.getId(),
+                role.getName(),
+                role.getDescription(),
+                role.getPermissions(),
+                role.getCreatedAt(),
+                role.getUpdatedAt()
+        );
+    }
+}
+
+
+===== src/main/java/com/npopov/philharmonic/identity/role/dto/RoleResponse.java =====
+package com.npopov.philharmonic.identity.role.dto;
+
+import com.npopov.philharmonic.shared.domain.Permission;
+import java.time.LocalDateTime;
+import java.util.Set;
+
+public class RoleResponse {
+    private Long id;
+    private String name;
+    private String description;
+    private Set<Permission> permissions;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    public RoleResponse() {}
+
+    public RoleResponse(Long id, String name, String description, Set<Permission> permissions,
+                        LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.permissions = permissions;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public Set<Permission> getPermissions() { return permissions; }
+    public void setPermissions(Set<Permission> permissions) { this.permissions = permissions; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+}
+
+
+===== src/main/java/com/npopov/philharmonic/identity/role/dto/RoleUpdateRequest.java =====
+package com.npopov.philharmonic.identity.role.dto;
+
+import com.npopov.philharmonic.shared.domain.Permission;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import java.util.Set;
+
+public class RoleUpdateRequest {
+
+    @NotBlank(message = "Role name cannot be blank")
+    @Size(max = 50, message = "Role name must not exceed 50 characters")
+    private String name;
+
+    @Size(max = 255, message = "Description must not exceed 255 characters")
+    private String description;
+
+    @NotNull(message = "Permissions set cannot be null")
+    private Set<Permission> permissions;
+
+    public RoleUpdateRequest() {}
+
+    public RoleUpdateRequest(String name, String description, Set<Permission> permissions) {
+        this.name = name;
+        this.description = description;
+        this.permissions = permissions;
+    }
+
+    // getters and setters
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public Set<Permission> getPermissions() { return permissions; }
+    public void setPermissions(Set<Permission> permissions) { this.permissions = permissions; }
+}
+
+
+===== src/main/java/com/npopov/philharmonic/identity/role/repository/RoleRepository.java =====
+package com.npopov.philharmonic.identity.role.repository;
+
+import com.npopov.philharmonic.identity.role.domain.Role;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface RoleRepository extends JpaRepository<Role, Long> {
+    Optional<Role> findByName(String name);
+}
+
+
+===== src/main/java/com/npopov/philharmonic/identity/role/service/RoleService.java =====
+package com.npopov.philharmonic.identity.role.service;
+
+import com.npopov.philharmonic.identity.role.domain.Role;
+import com.npopov.philharmonic.identity.role.repository.RoleRepository;
+import com.npopov.philharmonic.shared.service.JpaCrudService;
+import org.springframework.stereotype.Service;
+
+@Service
+public class RoleService extends JpaCrudService<Role, Long> {
+
+    private final RoleRepository roleRepository;
+
+    public RoleService(RoleRepository roleRepository) {
+        super(roleRepository);
+        this.roleRepository = roleRepository;
+    }
+}
+
+
+===== src/main/java/com/npopov/philharmonic/identity/user/controller/UserController.java =====
+package com.npopov.philharmonic.identity.user.controller;
+
+import com.npopov.philharmonic.identity.user.domain.User;
+import com.npopov.philharmonic.identity.user.dto.*;
+import com.npopov.philharmonic.identity.user.service.UserService;
+import com.npopov.philharmonic.shared.controller.GenericRestController;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Set;
+
+@RestController
+@RequestMapping("/api/users")
+@PreAuthorize("hasRole('SUPERADMIN')")
+public class UserController {
+
+    private final GenericRestController<User, Long, UserResponse, UserCreateRequest, UserUpdateRequest> genericController;
+    private final UserService userService;
+    private final UserMapper userMapper;
+
+    public UserController(UserService userService, UserMapper userMapper) {
+        this.userService = userService;
+        this.userMapper = userMapper;
+        this.genericController = new GenericRestController<>(
+                userService,
+                userMapper::toResponse,
+                userMapper::toUserFromCreate,
+                (id, req) -> {
+                    User user = userMapper.toUserFromUpdate(req);
+                    user.setId(id);
+                    return user;
+                }
+        );
+    }
+
+    @GetMapping
+    public List<UserResponse> getAll() {
+        return genericController.getAll();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<UserResponse> getById(@PathVariable Long id) {
+        return genericController.getById(id);
+    }
+
+    @PostMapping
+    public ResponseEntity<UserResponse> create(@Valid @RequestBody UserCreateRequest request) {
+        return genericController.create(request);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<UserResponse> update(@PathVariable Long id, @Valid @RequestBody UserUpdateRequest request) {
+        return genericController.update(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        return genericController.delete(id);
+    }
+
+    // Назначение ролей пользователю
+    @PutMapping("/{id}/roles")
+    public ResponseEntity<UserResponse> assignRoles(@PathVariable Long id, @RequestBody Set<Long> roleIds) {
+        User updated = userService.assignRoles(id, roleIds);
+        return ResponseEntity.ok(userMapper.toResponse(updated));
+    }
+}
 
 
 ===== src/main/java/com/npopov/philharmonic/identity/user/domain/User.java =====
@@ -5023,6 +6228,56 @@ public class User extends Auditable implements HasId<Long> {
     public void setEnabled(Boolean enabled) {
         this.enabled = enabled;
     }
+}
+
+
+===== src/main/java/com/npopov/philharmonic/identity/user/dto/UserCreateRequest.java =====
+package com.npopov.philharmonic.identity.user.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import java.util.Set;
+
+public class UserCreateRequest {
+
+    @NotBlank(message = "Username cannot be blank")
+    @Size(max = 50, message = "Username must not exceed 50 characters")
+    private String username;
+
+    @NotBlank(message = "Password cannot be blank")
+    @Size(min = 6, max = 255, message = "Password must be between 6 and 255 characters")
+    private String password;
+
+    @Email(message = "Email must be valid")
+    @Size(max = 100, message = "Email must not exceed 100 characters")
+    private String email;
+
+    private Boolean enabled = true;
+
+    private Set<Long> roleIds; // IDs of roles to assign
+
+    public UserCreateRequest() {}
+
+    public UserCreateRequest(String username, String password, String email, Boolean enabled, Set<Long> roleIds) {
+        this.username = username;
+        this.password = password;
+        this.email = email;
+        this.enabled = enabled;
+        this.roleIds = roleIds;
+    }
+
+    // getters and setters
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+    public Boolean getEnabled() { return enabled; }
+    public void setEnabled(Boolean enabled) { this.enabled = enabled; }
+    public Set<Long> getRoleIds() { return roleIds; }
+    public void setRoleIds(Set<Long> roleIds) { this.roleIds = roleIds; }
 }
 
 
@@ -5149,6 +6404,46 @@ public class UserResponse {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+}
+
+
+===== src/main/java/com/npopov/philharmonic/identity/user/dto/UserUpdateRequest.java =====
+package com.npopov.philharmonic.identity.user.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Size;
+import java.util.Set;
+
+public class UserUpdateRequest {
+
+    @Size(max = 50, message = "Username must not exceed 50 characters")
+    private String username;
+
+    @Email(message = "Email must be valid")
+    @Size(max = 100, message = "Email must not exceed 100 characters")
+    private String email;
+
+    private Boolean enabled;
+
+    private Set<Long> roleIds;
+
+    public UserUpdateRequest() {}
+
+    public UserUpdateRequest(String username, String email, Boolean enabled, Set<Long> roleIds) {
+        this.username = username;
+        this.email = email;
+        this.enabled = enabled;
+        this.roleIds = roleIds;
+    }
+
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+    public Boolean getEnabled() { return enabled; }
+    public void setEnabled(Boolean enabled) { this.enabled = enabled; }
+    public Set<Long> getRoleIds() { return roleIds; }
+    public void setRoleIds(Set<Long> roleIds) { this.roleIds = roleIds; }
 }
 
 
@@ -5939,6 +7234,45 @@ public class OrganizerCreateRequest {
 }
 
 
+===== src/main/java/com/npopov/philharmonic/organizer/dto/OrganizerMapper.java =====
+package com.npopov.philharmonic.organizer.dto;
+
+import com.npopov.philharmonic.organizer.domain.Organizer;
+import org.springframework.stereotype.Component;
+
+@Component
+public class OrganizerMapper {
+
+    public Organizer toOrganizerFromCreate(OrganizerCreateRequest request) {
+        return new Organizer(
+                request.getName(),
+                request.getContactInfo(),
+                request.getType()
+        );
+    }
+
+    public Organizer toOrganizerFromUpdate(OrganizerUpdateRequest request) {
+        return new Organizer(
+                request.getName(),
+                request.getContactInfo(),
+                request.getType()
+        );
+    }
+
+    public OrganizerResponse toResponse(Organizer organizer) {
+        return new OrganizerResponse(
+                organizer.getId(),
+                organizer.getName(),
+                organizer.getContactInfo(),
+                organizer.getType(),
+                organizer.getCreatedAt(),
+                organizer.getUpdatedAt()
+        );
+    }
+}
+
+
+
 ===== src/main/java/com/npopov/philharmonic/organizer/dto/OrganizerResponse.java =====
 package com.npopov.philharmonic.organizer.dto;
 
@@ -6236,6 +7570,17 @@ public interface HasId<ID> {
 }
 
 
+===== src/main/java/com/npopov/philharmonic/shared/domain/Permission.java =====
+package com.npopov.philharmonic.shared.domain;
+
+public enum Permission {
+    CREATE,
+    READ,
+    UPDATE,
+    DELETE
+}
+
+
 ===== src/main/java/com/npopov/philharmonic/shared/exception/BusinessException.java =====
 package com.npopov.philharmonic.shared.exception;
 
@@ -6436,9 +7781,6 @@ public class ValidationException extends RuntimeException {
 ===== src/main/java/com/npopov/philharmonic/shared/security/JwtAuthenticationFilter.java =====
 package com.npopov.philharmonic.shared.security;
 
-import com.npopov.philharmonic.identity.role.domain.Role;
-import com.npopov.philharmonic.identity.user.domain.User;
-import com.npopov.philharmonic.identity.user.service.UserService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -6460,16 +7802,15 @@ import java.util.stream.Collectors;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
-    private final UserService userService;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserService userService) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil) {
         this.jwtUtil = jwtUtil;
-        this.userService = userService;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain chain) throws ServletException, IOException {
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
@@ -6479,8 +7820,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 List<GrantedAuthority> authorities = roleNames.stream()
                         .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
                         .collect(Collectors.toList());
+
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(username, null, authorities);
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }
         chain.doFilter(request, response);
@@ -6491,10 +7836,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 ===== src/main/java/com/npopov/philharmonic/shared/security/JwtUtil.java =====
 package com.npopov.philharmonic.shared.security;
 
-import com.npopov.philharmonic.identity.role.domain.Role;
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.context.support.BeanDefinitionDsl;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
@@ -6507,13 +7852,16 @@ import java.util.stream.Collectors;
 @Component
 public class JwtUtil {
 
-    private static final String SECRET_KEY = "mySecretKeyForJwtThatIsLongEnoughToBeSecure12345678901234567890";  // Use env variable in prod
-    private static final long EXPIRATION_TIME = 86400000;  // 1 day
+    private static final String SECRET_KEY = "asdfsdfs231ofas76dfiuhasd9f7yasdifh781h2iu31ye12345678901234567890";
+    private static final long EXPIRATION_TIME = 86400000; // 1 day
 
     private final Key key = Keys.hmacShaKeyFor(SECRET_KEY.getBytes());
 
-    public String generateToken(String username, Set<Role> roles) {
-        List<String> roleNames = roles.stream().map(Role::getName).collect(Collectors.toList());
+    // Генерация токена – принимает Set сущностей Role, извлекает имена
+    public String generateToken(String username, Set<com.npopov.philharmonic.identity.role.domain.Role> roles) {
+        List<String> roleNames = roles.stream()
+                .map(com.npopov.philharmonic.identity.role.domain.Role::getName)
+                .collect(Collectors.toList());
         return Jwts.builder()
                 .setSubject(username)
                 .claim("roles", roleNames)
@@ -6530,13 +7878,6 @@ public class JwtUtil {
     public Set<String> extractRoleNames(String token) {
         Claims claims = extractClaims(token);
         return new HashSet<>((List<String>) claims.get("roles"));
-    }
-
-    public Set<Role> extractRoles(String token) {
-        Claims claims = extractClaims(token);
-        return ((java.util.List<String>) claims.get("roles")).stream()
-                .map(BeanDefinitionDsl.Role::valueOf)
-                .collect(Collectors.toSet());
     }
 
     public boolean isTokenValid(String token) {
@@ -6561,6 +7902,7 @@ public class JwtUtil {
 ===== src/main/java/com/npopov/philharmonic/shared/security/SecurityConfig.java =====
 package com.npopov.philharmonic.shared.security;
 
+import com.npopov.philharmonic.identity.role.domain.Role;
 import com.npopov.philharmonic.identity.user.service.UserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -6607,7 +7949,9 @@ public class SecurityConfig {
                 .map(user -> org.springframework.security.core.userdetails.User.builder()
                         .username(user.getUsername())
                         .password(user.getPassword())
-                        .roles(user.getRoles().stream().toArray(String[]::new))
+                        .roles(user.getRoles().stream()
+                                .map(Role::getName)
+                                .toArray(String[]::new))
                         .disabled(!user.getEnabled())
                         .build())
                 .orElse(null));
@@ -9082,11 +10426,12 @@ spring.application.name=Philharmonic
 spring.datasource.url=jdbc:postgresql://localhost:5432/philharmonic
 spring.datasource.username=your_user
 spring.datasource.password=your_password
-spring.jpa.hibernate.ddl-auto=none
+spring.jpa.hibernate.ddl-auto=update
 #spring.jpa.database-platform=org.hibernate.dialect.PostgresDialect
 spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.format_sql=true
 spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation=true
+#spring.jpa.generate-ddl=true
 
 logging.level.root=warn
 logging.level.org.springframework.web=debug
@@ -9295,6 +10640,7 @@ RETURNS TRIGGER AS $$
 BEGIN
     NEW.created_at = NOW();
     NEW.updated_at = NOW();
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -9365,6 +10711,24 @@ UNION
 SELECT id, 'UPDATE' FROM role WHERE name = 'SUPERADMIN'
 UNION
 SELECT id, 'DELETE' FROM role WHERE name = 'SUPERADMIN';
+
+-- -- 1. Добавляем новый столбец role_id
+-- ALTER TABLE user_roles ADD COLUMN role_id BIGINT;
+--
+-- -- 2. Заполняем role_id на основе существующих значений role (строковых)
+-- UPDATE user_roles ur
+-- SET role_id = r.id
+-- FROM role r
+-- WHERE r.name = ur.role;
+--
+-- -- 3. Делаем role_id обязательным (NOT NULL) – после того как все строки обновлены
+-- ALTER TABLE user_roles ALTER COLUMN role_id SET NOT NULL;
+--
+-- -- 4. Добавляем внешний ключ
+-- ALTER TABLE user_roles ADD CONSTRAINT fk_user_roles_role FOREIGN KEY (role_id) REFERENCES role(id) ON DELETE CASCADE;
+--
+-- -- 5. Удаляем старый столбец role
+-- ALTER TABLE user_roles DROP COLUMN role;
 
 
 

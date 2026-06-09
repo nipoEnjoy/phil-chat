@@ -2,11 +2,14 @@ package com.npopov.philharmonic.artist.domain;
 
 import com.npopov.philharmonic.events.competition.domain.CompetitionResult;
 import com.npopov.philharmonic.events.event.domain.EventArtist;
+import com.npopov.philharmonic.genre.domain.Genre;
 import com.npopov.philharmonic.shared.domain.Auditable;
 import com.npopov.philharmonic.shared.domain.HasId;
 import jakarta.persistence.*;
 
+import java.util.Collections;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "artist")
@@ -48,6 +51,33 @@ public class Artist extends Auditable implements HasId<Long> {
         this.lastName = lastName;
         this.stageName = stageName;
         this.contactInfo = contactInfo;
+    }
+
+    public Set<Genre> getGenres() {
+        if (artistGenres == null || artistGenres.isEmpty()) {
+            return Collections.emptySet();
+        }
+        return artistGenres.stream()
+                .map(ArtistGenre::getGenre)
+                .collect(Collectors.toSet());
+    }
+
+    public void addGenre(Genre genre) {
+        if (artistGenres == null) {
+            artistGenres = new java.util.HashSet<>();
+        }
+        boolean exists = artistGenres.stream()
+                .anyMatch(ag -> ag.getGenre().getId().equals(genre.getId()));
+        if (!exists) {
+            ArtistGenre link = new ArtistGenre(this, genre);
+            artistGenres.add(link);
+        }
+    }
+
+    public void removeGenre(Genre genre) {
+        if (artistGenres != null) {
+            artistGenres.removeIf(ag -> ag.getGenre().getId().equals(genre.getId()));
+        }
     }
 
     public Long getId() {

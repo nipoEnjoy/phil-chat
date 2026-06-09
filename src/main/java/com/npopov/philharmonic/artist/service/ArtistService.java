@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class ArtistService extends JpaCrudService<Artist, Long> {
@@ -20,6 +21,17 @@ public class ArtistService extends JpaCrudService<Artist, Long> {
     public ArtistService(ArtistRepository repository) {
         super(repository);
         this.repository = repository;
+    }
+
+    @Override
+    @Transactional
+    public Optional<Artist> findById(Long id) {
+        return repository.findByIdWithGenres(id);
+    }
+
+    @Transactional
+    public List<Artist> findAll() {
+        return repository.findAllWithGenres();
     }
 
     public List<Artist> findByGenre(String genreName) {
