@@ -1,5 +1,6 @@
 package com.npopov.philharmonic.shared.security;
 
+import com.npopov.philharmonic.identity.role.domain.Role;
 import com.npopov.philharmonic.identity.user.service.UserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -46,7 +47,9 @@ public class SecurityConfig {
                 .map(user -> org.springframework.security.core.userdetails.User.builder()
                         .username(user.getUsername())
                         .password(user.getPassword())
-                        .roles(user.getRoles().stream().map(Enum::name).toArray(String[]::new))
+                        .roles(user.getRoles().stream()
+                                .map(Role::getName)
+                                .toArray(String[]::new))
                         .disabled(!user.getEnabled())
                         .build())
                 .orElse(null));

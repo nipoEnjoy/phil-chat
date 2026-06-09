@@ -13,7 +13,7 @@ import java.util.Set;
 @Table(name = "event")
 @Inheritance(strategy = InheritanceType.JOINED)
 @DiscriminatorColumn(name = "event_type", discriminatorType = DiscriminatorType.STRING)
-public abstract class Event extends Auditable implements HasId<Long> {
+public class Event extends Auditable implements HasId<Long> {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")

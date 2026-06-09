@@ -2,16 +2,17 @@ package com.npopov.philharmonic.venues.varietystage.dto;
 
 import com.npopov.philharmonic.venues.venue.domain.VenueType;
 import com.npopov.philharmonic.venues.venue.dto.VenueCreateRequest;
+import com.npopov.philharmonic.venues.venue.dto.VenueUpdateRequest;
 
-public class VarietyStageUpdateRequest extends VenueCreateRequest {
+public class VarietyStageUpdateRequest extends VenueUpdateRequest {
 
     private String genreFocus;
 
     public VarietyStageUpdateRequest() {
     }
 
-    public VarietyStageUpdateRequest(String name, VenueType venueType, String address, String city, String description, String genreFocus) {
-        super(name, venueType, address, city, description);
+    public VarietyStageUpdateRequest(String name, String address, String city, String description, String genreFocus) {
+        super(name, address, city, description);
         this.genreFocus = genreFocus;
     }
 

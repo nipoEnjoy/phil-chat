@@ -1,6 +1,7 @@
 package com.npopov.philharmonic.venues.varietystage.dto;
 
 import com.npopov.philharmonic.venues.varietystage.domain.VarietyStage;
+import com.npopov.philharmonic.venues.venue.domain.VenueType;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -27,7 +28,7 @@ public class VarietyStageMapper {
     }
 
     public VarietyStageResponse toResponse(VarietyStage varietyStage) {
-        return new VarietyStageResponse(
+        VarietyStageResponse response = new VarietyStageResponse(
                 varietyStage.getId(),
                 varietyStage.getName(),
                 varietyStage.getAddress(),
@@ -37,5 +38,7 @@ public class VarietyStageMapper {
                 varietyStage.getUpdatedAt(),
                 varietyStage.getGenreFocus()
         );
+        response.setVenueType(VenueType.VARIETY_STAGE);
+        return response;
     }
 }

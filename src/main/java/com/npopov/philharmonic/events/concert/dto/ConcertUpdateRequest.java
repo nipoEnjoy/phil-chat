@@ -1,11 +1,12 @@
 package com.npopov.philharmonic.events.concert.dto;
 
 import com.npopov.philharmonic.events.event.dto.EventCreateRequest;
+import com.npopov.philharmonic.events.event.dto.EventUpdateRequest;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
 
-public class ConcertUpdateRequest extends EventCreateRequest {
+public class ConcertUpdateRequest extends EventUpdateRequest {
 
     @Size(max = 1000)
     private String program;

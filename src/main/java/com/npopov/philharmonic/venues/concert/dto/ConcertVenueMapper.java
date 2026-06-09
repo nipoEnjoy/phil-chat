@@ -1,6 +1,7 @@
 package com.npopov.philharmonic.venues.concert.dto;
 
 import com.npopov.philharmonic.venues.concert.domain.ConcertVenue;
+import com.npopov.philharmonic.venues.venue.domain.VenueType;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -34,7 +35,7 @@ public class ConcertVenueMapper {
     }
 
     public ConcertVenueResponse toResponse(ConcertVenue concertVenue) {
-        return new ConcertVenueResponse(
+        ConcertVenueResponse response = new ConcertVenueResponse(
                 concertVenue.getId(),
                 concertVenue.getName(),
                 concertVenue.getAddress(),
@@ -45,5 +46,7 @@ public class ConcertVenueMapper {
                 concertVenue.getStageType(),
                 concertVenue.getHasSoundSystem()
         );
+        response.setVenueType(VenueType.CONCERT_VENUE);
+        return response;
     }
 }

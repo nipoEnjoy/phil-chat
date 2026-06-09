@@ -1,15 +1,17 @@
 package com.npopov.philharmonic.events.event.dto;
 
-//import com.npopov.philharmonic.event.domain.EventType;
+import com.npopov.philharmonic.events.event.domain.EventType;
 
 import java.time.LocalDateTime;
 
 public class EventResponse {
     private Long id;
     private String title;
-//    private EventType eventType;
+    private EventType eventType;
     private Long venueId;
+    private String venueName;
     private Long organizerId;
+    private String organizerName;
     private LocalDateTime startDatetime;
     private LocalDateTime endDatetime;
     private String description;
@@ -18,12 +20,14 @@ public class EventResponse {
 
     public EventResponse() {}
 
-    public EventResponse(Long id, String title, Long venueId, Long organizerId, LocalDateTime startDatetime, LocalDateTime endDatetime, String description, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public EventResponse(Long id, String title, Long venueId, String venueName, Long organizerId, String organizerName, LocalDateTime startDatetime, LocalDateTime endDatetime, String description, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.title = title;
 //        this.eventType = eventType;
         this.venueId = venueId;
+        this.venueName = venueName;
         this.organizerId = organizerId;
+        this.organizerName = organizerName;
         this.startDatetime = startDatetime;
         this.endDatetime = endDatetime;
         this.description = description;
@@ -47,13 +51,13 @@ public class EventResponse {
         this.title = title;
     }
 
-//    public EventType getEventType() {
-//        return eventType;
-//    }
-//
-//    public void setEventType(EventType eventType) {
-//        this.eventType = eventType;
-//    }
+    public EventType getEventType() {
+        return eventType;
+    }
+
+    public void setEventType(EventType eventType) {
+        this.eventType = eventType;
+    }
 
     public Long getVenueId() {
         return venueId;

@@ -12,8 +12,8 @@ public class CulturalCentreCreateRequest extends VenueCreateRequest {
     public CulturalCentreCreateRequest() {
     }
 
-    public CulturalCentreCreateRequest(String name, VenueType venueType, String address, String city, String description, Integer communityRoomsCount) {
-        super(name, venueType, address, city, description);
+    public CulturalCentreCreateRequest(String name, String address, String city, String description, Integer communityRoomsCount) {
+        super(name, address, city, description);
         this.communityRoomsCount = communityRoomsCount;
     }
 

@@ -26,9 +26,9 @@ public class OtherEventController {
         this.genericController = new GenericRestController<>(
                 otherEventService,
                 otherEventMapper::toResponse,
-                otherEventMapper::createFromRequest,
+                otherEventMapper::toOtherEventFromCreate,
                 (id, req) -> {
-                    OtherEvent entity = otherEventMapper.updateFromRequest(req);
+                    OtherEvent entity = otherEventMapper.toOtherEventFromUpdate(req);
                     entity.setId(id);
                     return entity;
                 }

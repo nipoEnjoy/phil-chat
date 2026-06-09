@@ -1,5 +1,6 @@
 package com.npopov.philharmonic.venues.venue.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.npopov.philharmonic.venues.cinema.dto.CinemaCreateRequest;
@@ -31,8 +32,9 @@ public abstract class VenueCreateRequest {
         @Size(max = 100, message = "Venue name must not exceed 100 characters")
         String name;
 
-        @NotNull(message = "Venue type is required")
-        VenueType venueType;
+//        @NotNull(message = "Venue type is required")
+//        @JsonProperty(access = JsonProperty.Access.READ_WRITE)
+//        VenueType venueType;
 
         @Size(max = 200, message = "Address must not exceed 200 characters")
         String address;
@@ -45,9 +47,9 @@ public abstract class VenueCreateRequest {
 
         public VenueCreateRequest() {}
 
-        public VenueCreateRequest(String name, VenueType venueType, String address, String city, String description) {
+        public VenueCreateRequest(String name, String address, String city, String description) {
                 this.name = name;
-                this.venueType = venueType;
+//                this.venueType = venueType;
                 this.address = address;
                 this.city = city;
                 this.description = description;
@@ -61,13 +63,13 @@ public abstract class VenueCreateRequest {
                 this.name = name;
         }
 
-        public VenueType getVenueType() {
-                return venueType;
-        }
-
-        public void setVenueType(VenueType venueType) {
-                this.venueType = venueType;
-        }
+//        public VenueType getVenueType() {
+//                return venueType;
+//        }
+//
+//        public void setVenueType(VenueType venueType) {
+//                this.venueType = venueType;
+//        }
 
         public String getAddress() {
                 return address;

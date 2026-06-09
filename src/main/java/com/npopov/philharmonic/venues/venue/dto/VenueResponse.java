@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 public class VenueResponse {
     Long id;
     String name;
-//    VenueType venueType;
+    VenueType venueType;
     String address;
     String city;
     String description;
@@ -42,13 +42,13 @@ public class VenueResponse {
         this.name = name;
     }
 
-//    public VenueType getVenueType() {
-//        return venueType;
-//    }
-//
-//    public void setVenueType(VenueType venueType) {
-//        this.venueType = venueType;
-//    }
+    public VenueType getVenueType() {
+        return venueType;
+    }
+
+    public void setVenueType(VenueType venueType) {
+        this.venueType = venueType;
+    }
 
     public String getAddress() {
         return address;

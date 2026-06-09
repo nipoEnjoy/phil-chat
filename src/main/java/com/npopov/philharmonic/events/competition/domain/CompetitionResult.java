@@ -23,14 +23,14 @@ public class CompetitionResult extends Auditable implements HasId<Long> {
     private Artist artist;
 
     @Column(name = "place")
-    private Integer place;
+    private Long place;
 
     @Column(name = "award")
     private String award;
 
     public CompetitionResult() {}
 
-    public CompetitionResult(Competition competition, Artist artist, Integer place, String award) {
+    public CompetitionResult(Competition competition, Artist artist, Long place, String award) {
         this.competition = competition;
         this.artist = artist;
         this.place = place;
@@ -61,11 +61,11 @@ public class CompetitionResult extends Auditable implements HasId<Long> {
         this.artist = artist;
     }
 
-    public Integer getPlace() {
+    public Long getPlace() {
         return place;
     }
 
-    public void setPlace(Integer place) {
+    public void setPlace(Long place) {
         this.place = place;
     }
 

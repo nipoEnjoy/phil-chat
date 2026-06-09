@@ -80,12 +80,8 @@ public class ImpresarioController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ImpresarioResponse> updateImpresario(@PathVariable Long id, @RequestBody Impresario impresario) {
-        if (impresarioService.findById(id).isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        impresario.setId(id);
-        return ResponseEntity.ok(impresarioMapper.toResponse(impresarioService.update(id, impresario)));
+    public ResponseEntity<ImpresarioResponse> update(@PathVariable Long id, @RequestBody ImpresarioUpdateRequest impresario) {
+        return genericController.update(id, impresario);
     }
 
     @DeleteMapping("/{id}")

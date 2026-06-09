@@ -59,8 +59,8 @@ public class GenericRestController<E, ID, R, C, U> {
         if (service.findById(id).isEmpty()) {
             throw new ResourceNotFoundException("Resource with id " + id + " not found");
         }
-        E entityToUpdate = fromUpdate.apply(id, updateDto);
-        E saved = service.update(id, entityToUpdate);
+        E entityFromUpdate = fromUpdate.apply(id, updateDto);
+        E saved = service.update(id, entityFromUpdate);
         return ResponseEntity.ok(toResponse.apply(saved));
     }
 

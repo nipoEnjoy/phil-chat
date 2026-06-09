@@ -1,57 +1,66 @@
 package com.npopov.philharmonic.events.competition.controller;
 
 import com.npopov.philharmonic.events.competition.domain.CompetitionResult;
+import com.npopov.philharmonic.events.competition.dto.CompetitionResultCreateRequest;
+import com.npopov.philharmonic.events.competition.dto.CompetitionResultMapper;
+import com.npopov.philharmonic.events.competition.dto.CompetitionResultResponse;
+import com.npopov.philharmonic.events.competition.dto.CompetitionResultUpdateRequest;
 import com.npopov.philharmonic.events.competition.service.CompetitionResultService;
+import com.npopov.philharmonic.shared.controller.GenericRestController;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/competition-results")
+@RequestMapping("/api/events/competition/results")
 public class CompetitionResultController {
 
+    private final GenericRestController<CompetitionResult, Long,
+            CompetitionResultResponse, CompetitionResultCreateRequest, CompetitionResultUpdateRequest> genericController;
     private final CompetitionResultService competitionResultService;
+    private final CompetitionResultMapper competitionResultMapper;
 
-    public CompetitionResultController(CompetitionResultService competitionResultService) {
+    public CompetitionResultController(CompetitionResultService competitionResultService, CompetitionResultMapper competitionResultMapper) {
         this.competitionResultService = competitionResultService;
+        this.competitionResultMapper = competitionResultMapper;
+        this.genericController = new GenericRestController<>(
+                competitionResultService,
+                competitionResultMapper::toResponse,
+                competitionResultMapper::toCompetitionResultFromCreate,
+                (id, req) -> {
+                    CompetitionResult competitionResult = competitionResultMapper.toCompetitionResultFromUpdate(req);
+                    competitionResult.setId(id);
+                    return competitionResult;
+                }
+        );
     }
 
     @GetMapping
-    public List<CompetitionResult> getAllCompetitionResults(@RequestParam(required = false) Long competitionId) {
-        if (competitionId != null) {
-            return competitionResultService.findByCompetition(competitionId);
-        }
-        return competitionResultService.findAll();
+    public ResponseEntity<List<CompetitionResultResponse>> getAll(@RequestParam(required = false) Long competitionId) {
+        return ResponseEntity.ok(genericController.getAll());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CompetitionResult> getCompetitionResultById(@PathVariable Long id) {
-        return competitionResultService.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<CompetitionResultResponse> getById(@PathVariable Long id) {
+        return genericController.getById(id);
     }
 
     @PostMapping
-    public CompetitionResult createCompetitionResult(@RequestBody CompetitionResult competitionResult) {
-        return competitionResultService.save(competitionResult);
+    public ResponseEntity<CompetitionResultResponse> createCompetitionResult(@Valid @RequestBody CompetitionResultCreateRequest request) {
+        return genericController.create(request);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<CompetitionResult> updateCompetitionResult(@PathVariable Long id, @RequestBody CompetitionResult competitionResult) {
-        if (!competitionResultService.findById(id).isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
-        competitionResult.setId(id);
-        return ResponseEntity.ok(competitionResultService.save(competitionResult));
+    public ResponseEntity<CompetitionResultResponse> updateCompetitionResult(
+            @PathVariable Long id,
+            @Valid @RequestBody CompetitionResultUpdateRequest request) {
+        return genericController.update(id, request);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCompetitionResult(@PathVariable Long id) {
-        if (!competitionResultService.findById(id).isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
-        competitionResultService.deleteById(id);
-        return ResponseEntity.noContent().build();
+        return genericController.delete(id);
     }
 }

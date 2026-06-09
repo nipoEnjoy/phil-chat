@@ -23,11 +23,11 @@ public class CinemaUpdateRequest extends VenueUpdateRequest {
     @Size(max = 50, message = "Aspect ration must not exceed 50 characters")
     private String screenAspectRatio;
 
-    public CinemaUpdateRequest(String name, VenueType venueType,
+    public CinemaUpdateRequest(String name,
                                String address, String city, String description,
                                Integer screenWidthMm, Integer screenHeightMm,
                                Integer screenDiagonalMm, String screenAspectRatio) {
-        super(name, venueType, address, city, description);
+        super(name, address, city, description);
         this.screenWidthMm = screenWidthMm;
         this.screenHeightMm = screenHeightMm;
         this.screenDiagonalMm = screenDiagonalMm;

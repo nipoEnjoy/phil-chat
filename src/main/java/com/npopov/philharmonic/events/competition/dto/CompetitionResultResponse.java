@@ -6,22 +6,13 @@ public class CompetitionResultResponse {
     private Long id;
     private Long competitionId;
     private Long artistId;
-    private Integer place;
+    private Long place;
     private String award;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public CompetitionResultResponse(Long id, Long competitionId, Long artistId, Integer place, String award, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public CompetitionResultResponse(Long id, Long competitionId, Long artistId, Long place, String award, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
-        this.competitionId = competitionId;
-        this.artistId = artistId;
-        this.place = place;
-        this.award = award;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
-    }
-
-    public CompetitionResultResponse(Long competitionId, Long artistId, Integer place, String award, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.competitionId = competitionId;
         this.artistId = artistId;
         this.place = place;
@@ -56,11 +47,11 @@ public class CompetitionResultResponse {
         this.artistId = artistId;
     }
 
-    public Integer getPlace() {
+    public Long getPlace() {
         return place;
     }
 
-    public void setPlace(Integer place) {
+    public void setPlace(Long place) {
         this.place = place;
     }
 

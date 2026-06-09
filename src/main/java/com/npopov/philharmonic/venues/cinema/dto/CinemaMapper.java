@@ -1,6 +1,7 @@
 package com.npopov.philharmonic.venues.cinema.dto;
 
 import com.npopov.philharmonic.venues.cinema.domain.Cinema;
+import com.npopov.philharmonic.venues.venue.domain.VenueType;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -33,7 +34,7 @@ public class CinemaMapper {
     }
 
     public CinemaResponse toResponse(Cinema cinema) {
-        return new CinemaResponse(
+        CinemaResponse response = new CinemaResponse(
                 cinema.getId(),
                 cinema.getName(),
                 cinema.getAddress(),
@@ -46,5 +47,7 @@ public class CinemaMapper {
                 cinema.getScreenDiagonalMm(),
                 cinema.getScreenAspectRatio()
         );
+        response.setVenueType(VenueType.CINEMA);
+        return response;
     }
 }

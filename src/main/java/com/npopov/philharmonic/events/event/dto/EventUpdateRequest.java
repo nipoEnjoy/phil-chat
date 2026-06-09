@@ -1,6 +1,18 @@
 package com.npopov.philharmonic.events.event.dto;
 
-//import com.npopov.philharmonic.event.domain.EventType;
+
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.npopov.philharmonic.events.competition.dto.CompetitionCreateRequest;
+import com.npopov.philharmonic.events.competition.dto.CompetitionUpdateRequest;
+import com.npopov.philharmonic.events.concert.dto.ConcertCreateRequest;
+import com.npopov.philharmonic.events.concert.dto.ConcertUpdateRequest;
+import com.npopov.philharmonic.events.festival.dto.FestivalCreateRequest;
+import com.npopov.philharmonic.events.festival.dto.FestivalUpdateRequest;
+import com.npopov.philharmonic.events.otherevent.dto.OtherEventCreateRequest;
+import com.npopov.philharmonic.events.otherevent.dto.OtherEventUpdateRequest;
+import com.npopov.philharmonic.events.solo.dto.SoloCreateRequest;
+import com.npopov.philharmonic.events.solo.dto.SoloUpdateRequest;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -8,6 +20,18 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
 
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "eventType"
+)
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = ConcertUpdateRequest.class, name = "CONCERT"),
+        @JsonSubTypes.Type(value = CompetitionUpdateRequest.class, name = "COMPETITION"),
+        @JsonSubTypes.Type(value = SoloUpdateRequest.class, name = "SOLO"),
+        @JsonSubTypes.Type(value = FestivalUpdateRequest.class, name = "FESTIVAL"),
+        @JsonSubTypes.Type(value = OtherEventUpdateRequest.class, name = "OTHER")
+})
 public abstract class EventUpdateRequest {
         @NotBlank(message = "Event title cannot be blank")
         @Size(max = 200, message = "Title must not exceed 200 characters")

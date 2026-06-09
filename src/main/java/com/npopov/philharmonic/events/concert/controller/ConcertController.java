@@ -28,9 +28,9 @@ public class ConcertController {
         this.genericController = new GenericRestController<>(
                 concertService,
                 concertMapper::toResponse,
-                concertMapper::concertFromCreate,
+                concertMapper::toConcertFromCreate,
                 (id, req) -> {
-                    Concert concert = concertMapper.concertFromUpdate(req);
+                    Concert concert = concertMapper.toConcertFromUpdate(req);
                     concert.setId(id);
                     return concert;
                 }

@@ -21,8 +21,8 @@ public class TheatreUpdateRequest extends VenueUpdateRequest {
     public TheatreUpdateRequest() {
     }
 
-    public TheatreUpdateRequest(String name, VenueType venueType, String address, String city, String description, Integer capacity, Integer stageWidthMm, Integer stageDepthMm) {
-        super(name, venueType, address, city, description);
+    public TheatreUpdateRequest(String name, String address, String city, String description, Integer capacity, Integer stageWidthMm, Integer stageDepthMm) {
+        super(name, address, city, description);
         this.capacity = capacity;
         this.stageWidthMm = stageWidthMm;
         this.stageDepthMm = stageDepthMm;

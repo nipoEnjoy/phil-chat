@@ -22,11 +22,11 @@ public class CinemaCreateRequest extends VenueCreateRequest {
     @Size(max = 50, message = "Aspect ratio must not exceed 50 characters")
     private String screenAspectRatio;
 
-    public CinemaCreateRequest(String name, VenueType venueType,
+    public CinemaCreateRequest(String name,
                                String address, String city, String description,
                                Integer screenWidthMm, Integer screenHeightMm,
                                Integer screenDiagonalMm, String screenAspectRatio) {
-        super(name, venueType, address, city, description);
+        super(name, address, city, description);
         this.screenWidthMm = screenWidthMm;
         this.screenHeightMm = screenHeightMm;
         this.screenDiagonalMm = screenDiagonalMm;

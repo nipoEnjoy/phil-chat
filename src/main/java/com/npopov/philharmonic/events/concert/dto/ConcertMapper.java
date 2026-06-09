@@ -1,6 +1,7 @@
 package com.npopov.philharmonic.events.concert.dto;
 
 import com.npopov.philharmonic.events.concert.domain.Concert;
+import com.npopov.philharmonic.events.event.domain.EventType;
 import com.npopov.philharmonic.organizer.domain.Organizer;
 import com.npopov.philharmonic.organizer.repository.OrganizerRepository;
 import com.npopov.philharmonic.venues.venue.domain.Venue;
@@ -19,9 +20,11 @@ public class ConcertMapper {
         this.organizerRepository = organizerRepository;
     }
 
-    public Concert concertFromCreate(ConcertCreateRequest req) {
+    public Concert toConcertFromCreate(ConcertCreateRequest req) {
         Venue venue = venueRepository.getReferenceById(req.getVenueId());
-        Organizer organizer = organizerRepository.getReferenceById(req.getOrganizerId());
+        Organizer organizer = req.getOrganizerId() != null
+                ? organizerRepository.getReferenceById(req.getOrganizerId())
+                : null;
 
         return new Concert(
                 req.getTitle(),
@@ -34,9 +37,11 @@ public class ConcertMapper {
         );
     }
 
-    public Concert concertFromUpdate(ConcertUpdateRequest req) {
+    public Concert toConcertFromUpdate(ConcertUpdateRequest req) {
         Venue venue = venueRepository.getReferenceById(req.getVenueId());
-        Organizer organizer = organizerRepository.getReferenceById(req.getOrganizerId());
+        Organizer organizer = req.getOrganizerId() != null
+                ? organizerRepository.getReferenceById(req.getOrganizerId())
+                : null;
 
         return new Concert(
                 req.getTitle(),
@@ -50,11 +55,13 @@ public class ConcertMapper {
     }
 
     public ConcertResponse toResponse(Concert concert) {
-        return new ConcertResponse(
+        ConcertResponse response = new ConcertResponse(
                 concert.getId(),
                 concert.getTitle(),
                 concert.getVenue().getId(),
+                concert.getVenue().getName(),
                 concert.getOrganizer().getId(),
+                concert.getOrganizer().getName(),
                 concert.getStartDatetime(),
                 concert.getEndDatetime(),
                 concert.getDescription(),
@@ -62,5 +69,7 @@ public class ConcertMapper {
                 concert.getUpdatedAt(),
                 concert.getProgram()
         );
+        response.setEventType(EventType.CONCERT);
+        return response;
     }
 }

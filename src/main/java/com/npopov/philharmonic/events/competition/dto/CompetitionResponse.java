@@ -13,11 +13,8 @@ public class CompetitionResponse extends EventResponse {
 
     public CompetitionResponse() {}
 
-    public CompetitionResponse(Long id, String title, Long venueId, Long organizerId,
-                               LocalDateTime startDatetime, LocalDateTime endDatetime, String description,
-                               LocalDateTime createdAt, LocalDateTime updatedAt,
-                               String competitionType, String rules, String juryInfo) {
-        super(id, title, venueId, organizerId, startDatetime, endDatetime, description, createdAt, updatedAt);
+    public CompetitionResponse(Long id, String title, Long venueId, String venueName, Long organizerId, String organizerName, LocalDateTime startDatetime, LocalDateTime endDatetime, String description, LocalDateTime createdAt, LocalDateTime updatedAt, String competitionType, String rules, String juryInfo) {
+        super(id, title, venueId, venueName, organizerId, organizerName, startDatetime, endDatetime, description, createdAt, updatedAt);
         this.competitionType = competitionType;
         this.rules = rules;
         this.juryInfo = juryInfo;

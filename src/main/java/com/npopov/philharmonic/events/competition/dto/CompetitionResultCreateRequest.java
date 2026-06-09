@@ -10,19 +10,19 @@ public class CompetitionResultCreateRequest {
         @NotNull(message = "Artist ID is required")
         Long artistId;
 
-        Integer place;
+        Long place;
 
         @Size(max = 200, message = "Award must not exceed 200 characters")
         String award;
 
-        public CompetitionResultCreateRequest(Long competitionId, Long artistId, Integer place, String award) {
+        public CompetitionResultCreateRequest(Long competitionId, Long artistId, Long place, String award) {
                 this.competitionId = competitionId;
                 this.artistId = artistId;
                 this.place = place;
                 this.award = award;
         }
 
-        public CompetitionResultCreateRequest(Long artistId, Integer place, String award) {
+        public CompetitionResultCreateRequest(Long artistId, Long place, String award) {
                 this.artistId = artistId;
                 this.place = place;
                 this.award = award;
@@ -46,11 +46,11 @@ public class CompetitionResultCreateRequest {
                 this.artistId = artistId;
         }
 
-        public Integer getPlace() {
+        public Long getPlace() {
                 return place;
         }
 
-        public void setPlace(Integer place) {
+        public void setPlace(Long place) {
                 this.place = place;
         }
 

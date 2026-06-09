@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 @Entity
 @Table(name = "cinema")
 @PrimaryKeyJoinColumn(name = "id")
+@DiscriminatorValue("CINEMA")
 public class Cinema extends Venue {
 
     @Column(name = "screen_width_mm", nullable = false)

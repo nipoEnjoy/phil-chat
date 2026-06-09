@@ -1,6 +1,7 @@
 package com.npopov.philharmonic.venues.theatre.dto;
 
 import com.npopov.philharmonic.venues.theatre.domain.Theatre;
+import com.npopov.philharmonic.venues.venue.domain.VenueType;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -31,7 +32,7 @@ public class TheatreMapper {
     }
 
     public TheatreResponse toResponse(Theatre theatre) {
-        return new TheatreResponse(
+        TheatreResponse response = new TheatreResponse(
                 theatre.getId(),
                 theatre.getName(),
                 theatre.getAddress(),
@@ -43,5 +44,7 @@ public class TheatreMapper {
                 theatre.getStageWidthMm(),
                 theatre.getStageDepthMm()
         );
+        response.setVenueType(VenueType.THEATRE);
+        return response;
     }
 }

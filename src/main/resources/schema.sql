@@ -138,10 +138,24 @@ CREATE TABLE user_table (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE role (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE CHECK (length(trim(name)) > 0),
+    description VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE role_permissions (
+    role_id BIGINT NOT NULL REFERENCES role(id) ON DELETE CASCADE,
+    permission VARCHAR(20) NOT NULL,
+    PRIMARY KEY (role_id, permission)
+);
+
 CREATE TABLE user_roles (
-    user_id BIGSERIAL NOT NULL REFERENCES user_table(id) ON DELETE CASCADE,
-    role VARCHAR(50) NOT NULL CHECK (role IN ('USER', 'ADMIN', 'SUPERADMIN')),
-    PRIMARY KEY (user_id, role)
+    user_id BIGINT NOT NULL REFERENCES user_table(id) ON DELETE CASCADE,
+    role_id BIGINT NOT NULL REFERENCES role(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, role_id)
 );
 
 -- Link tables --
@@ -184,6 +198,7 @@ RETURNS TRIGGER AS $$
 BEGIN
     NEW.created_at = NOW();
     NEW.updated_at = NOW();
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -225,3 +240,50 @@ CREATE TRIGGER update_event_updated_at BEFORE UPDATE ON event FOR EACH ROW EXECU
 CREATE TRIGGER update_event_artist_updated_at BEFORE UPDATE ON event_artist FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_competition_result_updated_at BEFORE UPDATE ON competition_result FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_user_updated_at BEFORE UPDATE ON user_table FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Roles
+INSERT INTO role (name, description) VALUES
+    ('USER', 'Обычный пользователь - только чтение'),
+    ('ADMIN', 'Администратор – создание и редактирование'),
+    ('SUPERADMIN', 'Суперадмин – полный доступ');
+
+-- User permissions
+-- USER
+INSERT INTO role_permissions (role_id, permission)
+SELECT id, 'READ' FROM role WHERE name = 'USER';
+
+-- ADMIN
+INSERT INTO role_permissions (role_id, permission)
+SELECT id, 'CREATE' FROM role WHERE name = 'ADMIN'
+UNION
+SELECT id, 'READ' FROM role WHERE name = 'ADMIN'
+UNION
+SELECT id, 'UPDATE' FROM role WHERE name = 'ADMIN';
+
+-- SUPERADMIN
+INSERT INTO role_permissions (role_id, permission)
+SELECT id, 'CREATE' FROM role WHERE name = 'SUPERADMIN'
+UNION
+SELECT id, 'READ' FROM role WHERE name = 'SUPERADMIN'
+UNION
+SELECT id, 'UPDATE' FROM role WHERE name = 'SUPERADMIN'
+UNION
+SELECT id, 'DELETE' FROM role WHERE name = 'SUPERADMIN';
+
+-- -- 1. Добавляем новый столбец role_id
+-- ALTER TABLE user_roles ADD COLUMN role_id BIGINT;
+--
+-- -- 2. Заполняем role_id на основе существующих значений role (строковых)
+-- UPDATE user_roles ur
+-- SET role_id = r.id
+-- FROM role r
+-- WHERE r.name = ur.role;
+--
+-- -- 3. Делаем role_id обязательным (NOT NULL) – после того как все строки обновлены
+-- ALTER TABLE user_roles ALTER COLUMN role_id SET NOT NULL;
+--
+-- -- 4. Добавляем внешний ключ
+-- ALTER TABLE user_roles ADD CONSTRAINT fk_user_roles_role FOREIGN KEY (role_id) REFERENCES role(id) ON DELETE CASCADE;
+--
+-- -- 5. Удаляем старый столбец role
+-- ALTER TABLE user_roles DROP COLUMN role;

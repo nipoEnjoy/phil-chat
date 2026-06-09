@@ -1,11 +1,13 @@
 package com.npopov.philharmonic.events.competition.dto;
 
 import com.npopov.philharmonic.events.event.dto.EventCreateRequest;
+import com.npopov.philharmonic.events.event.dto.EventUpdateRequest;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
 
-public class CompetitionUpdateRequest extends EventCreateRequest {
+public class CompetitionUpdateRequest extends EventUpdateRequest {
+
         @Size(max = 100, message = "Competition type must not exceed 100 characters")
         String competitionType;
 

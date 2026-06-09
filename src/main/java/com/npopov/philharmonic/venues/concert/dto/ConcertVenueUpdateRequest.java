@@ -16,8 +16,8 @@ public class ConcertVenueUpdateRequest extends VenueUpdateRequest {
 
     public ConcertVenueUpdateRequest() {}
 
-    public ConcertVenueUpdateRequest(String name, VenueType venueType, String address, String city, String description, String stageType, Boolean hasSoundSystem) {
-        super(name, venueType, address, city, description);
+    public ConcertVenueUpdateRequest(String name, String address, String city, String description, String stageType, Boolean hasSoundSystem) {
+        super(name, address, city, description);
         this.stageType = stageType;
         this.hasSoundSystem = hasSoundSystem;
     }

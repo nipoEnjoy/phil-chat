@@ -1,5 +1,6 @@
 package com.npopov.philharmonic.events.otherevent.dto;
 
+import com.npopov.philharmonic.events.event.domain.EventType;
 import com.npopov.philharmonic.events.otherevent.domain.OtherEvent;
 import com.npopov.philharmonic.organizer.domain.Organizer;
 import com.npopov.philharmonic.organizer.repository.OrganizerRepository;
@@ -19,9 +20,11 @@ public class OtherEventMapper {
         this.organizerRepository = organizerRepository;
     }
 
-    public OtherEvent createFromRequest(OtherEventCreateRequest req) {
+    public OtherEvent toOtherEventFromCreate(OtherEventCreateRequest req) {
         Venue venue = venueRepository.getReferenceById(req.getVenueId());
-        Organizer organizer = organizerRepository.getReferenceById(req.getOrganizerId());
+        Organizer organizer = req.getOrganizerId() != null
+                ? organizerRepository.getReferenceById(req.getOrganizerId())
+                : null;
 
         return new OtherEvent(
                 req.getTitle(),
@@ -33,9 +36,11 @@ public class OtherEventMapper {
         );
     }
 
-    public OtherEvent updateFromRequest(OtherEventUpdateRequest req) {
+    public OtherEvent toOtherEventFromUpdate(OtherEventUpdateRequest req) {
         Venue venue = venueRepository.getReferenceById(req.getVenueId());
-        Organizer organizer = organizerRepository.getReferenceById(req.getOrganizerId());
+        Organizer organizer = req.getOrganizerId() != null
+                ? organizerRepository.getReferenceById(req.getOrganizerId())
+                : null;
 
         return new OtherEvent(
                 req.getTitle(),
@@ -48,16 +53,20 @@ public class OtherEventMapper {
     }
 
     public OtherEventResponse toResponse(OtherEvent otherEvent) {
-        return new OtherEventResponse(
+        OtherEventResponse response = new OtherEventResponse(
                 otherEvent.getId(),
                 otherEvent.getTitle(),
                 otherEvent.getVenue().getId(),
+                otherEvent.getVenue().getName(),
                 otherEvent.getOrganizer().getId(),
+                otherEvent.getOrganizer().getName(),
                 otherEvent.getStartDatetime(),
                 otherEvent.getEndDatetime(),
                 otherEvent.getDescription(),
                 otherEvent.getCreatedAt(),
                 otherEvent.getUpdatedAt()
         );
+        response.setEventType(EventType.OTHER);
+        return response;
     }
 }

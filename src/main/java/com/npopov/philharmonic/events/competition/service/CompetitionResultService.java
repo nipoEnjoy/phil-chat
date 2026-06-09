@@ -2,17 +2,20 @@ package com.npopov.philharmonic.events.competition.service;
 
 import com.npopov.philharmonic.events.competition.domain.CompetitionResult;
 import com.npopov.philharmonic.events.competition.repository.CompetitionResultRepository;
+import com.npopov.philharmonic.shared.service.JpaCrudService;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
 
 @Service
-public class CompetitionResultService {
+public class CompetitionResultService extends JpaCrudService<CompetitionResult, Long> {
 
     private final CompetitionResultRepository competitionResultRepository;
 
     public CompetitionResultService(CompetitionResultRepository competitionResultRepository) {
+        super(competitionResultRepository);
         this.competitionResultRepository = competitionResultRepository;
     }
 

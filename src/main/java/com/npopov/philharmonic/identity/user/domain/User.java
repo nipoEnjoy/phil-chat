@@ -23,18 +23,20 @@ public class User extends Auditable implements HasId<Long> {
     @Column(name = "email")
     private String email;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
-    @Enumerated(EnumType.STRING)
-    @Column(name = "role")
-    private Set<Role> roles;
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Set<com.npopov.philharmonic.identity.role.domain.Role> roles;
 
     @Column(name = "enabled", nullable = false)
     private Boolean enabled = true;
 
     public User() {}
 
-    public User(String username, String password, String email, Set<Role> roles) {
+    public User(String username, String password, String email, Set<com.npopov.philharmonic.identity.role.domain.Role> roles) {
         this.username = username;
         this.password = password;
         this.email = email;
@@ -74,11 +76,11 @@ public class User extends Auditable implements HasId<Long> {
         this.email = email;
     }
 
-    public Set<Role> getRoles() {
+    public Set<com.npopov.philharmonic.identity.role.domain.Role> getRoles() {
         return roles;
     }
 
-    public void setRoles(Set<Role> roles) {
+    public void setRoles(Set<com.npopov.philharmonic.identity.role.domain.Role> roles) {
         this.roles = roles;
     }
 

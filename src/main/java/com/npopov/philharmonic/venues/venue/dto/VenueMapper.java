@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 public class VenueMapper {
     private VenueMapper() {}
 
-    public static Venue toVenue(VenueCreateRequest request) {
+    public Venue toVenueFromCreate(VenueCreateRequest request) {
         if (request == null) return new Venue();
         return new Venue(
                 request.getName(),
@@ -17,7 +17,7 @@ public class VenueMapper {
         );
     }
 
-    public static Venue toVenue(VenueUpdateRequest request) {
+    public Venue toVenueFromUpdate(VenueUpdateRequest request) {
         if (request == null) return new Venue();
         return new Venue(
                 request.getName(),
@@ -27,7 +27,7 @@ public class VenueMapper {
         );
     }
 
-    public static VenueResponse toResponse(Venue venue) {
+    public VenueResponse toResponse(Venue venue) {
         if (venue == null) return null;
         return new VenueResponse(
                 venue.getId(),

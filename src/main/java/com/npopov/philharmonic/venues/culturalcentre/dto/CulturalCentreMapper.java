@@ -3,6 +3,7 @@ package com.npopov.philharmonic.venues.culturalcentre.dto;
 import com.npopov.philharmonic.venues.concert.domain.ConcertVenue;
 import com.npopov.philharmonic.venues.concert.dto.ConcertVenueResponse;
 import com.npopov.philharmonic.venues.culturalcentre.domain.CulturalCentre;
+import com.npopov.philharmonic.venues.venue.domain.VenueType;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -29,7 +30,7 @@ public class CulturalCentreMapper {
     }
 
     public CulturalCentreResponse toResponse(CulturalCentre culturalCentre) {
-        return new CulturalCentreResponse(
+         CulturalCentreResponse response = new CulturalCentreResponse(
                 culturalCentre.getId(),
                 culturalCentre.getName(),
                 culturalCentre.getAddress(),
@@ -39,5 +40,7 @@ public class CulturalCentreMapper {
                 culturalCentre.getUpdatedAt(),
                 culturalCentre.getCommunityRoomsCount()
         );
+        response.setVenueType(VenueType.CULTURAL_CENTRE);
+        return response;
     }
 }

@@ -1,8 +1,8 @@
 package com.npopov.philharmonic.identity.auth.dto;
 
+import com.npopov.philharmonic.identity.role.domain.Role;
 import jakarta.validation.constraints.*;
 import java.util.Set;
-import com.npopov.philharmonic.identity.user.domain.Role;
 
 public record RegisterRequest (
     @NotBlank(message = "Username cannot be blank")
@@ -18,5 +18,5 @@ public record RegisterRequest (
     String email,
 
     @NotNull(message = "Roles cannot be null")
-    Set<Role> roles
+    Set<String> roles
 ){}

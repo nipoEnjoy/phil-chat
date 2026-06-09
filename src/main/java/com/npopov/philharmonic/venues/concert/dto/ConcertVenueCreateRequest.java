@@ -15,8 +15,8 @@ public class ConcertVenueCreateRequest extends VenueCreateRequest {
 
     public ConcertVenueCreateRequest() {}
 
-    public ConcertVenueCreateRequest(String name, VenueType venueType, String address, String city, String description, String stageType, Boolean hasSoundSystem) {
-        super(name, venueType, address, city, description);
+    public ConcertVenueCreateRequest(String name, String address, String city, String description, String stageType, Boolean hasSoundSystem) {
+        super(name, address, city, description);
         this.stageType = stageType;
         this.hasSoundSystem = hasSoundSystem;
     }

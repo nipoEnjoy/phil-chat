@@ -10,8 +10,8 @@ public class VarietyStageCreateRequest extends VenueCreateRequest {
     public VarietyStageCreateRequest() {
     }
 
-    public VarietyStageCreateRequest(String name, VenueType venueType, String address, String city, String description, String genreFocus) {
-        super(name, venueType, address, city, description);
+    public VarietyStageCreateRequest(String name, String address, String city, String description, String genreFocus) {
+        super(name, address, city, description);
         this.genreFocus = genreFocus;
     }
 

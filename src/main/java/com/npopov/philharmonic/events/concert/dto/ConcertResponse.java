@@ -9,10 +9,8 @@ public class ConcertResponse extends EventResponse {
 
     private String program;
 
-    public ConcertResponse(Long id, String title, Long venueId, Long organizerId,
-                           LocalDateTime startDatetime, LocalDateTime endDatetime,
-                           String description, LocalDateTime createdAt, LocalDateTime updatedAt, String program) {
-        super(id, title, venueId, organizerId, startDatetime, endDatetime, description, createdAt, updatedAt);
+    public ConcertResponse(Long id, String title, Long venueId, String venueName, Long organizerId, String organizerName, LocalDateTime startDatetime, LocalDateTime endDatetime, String description, LocalDateTime createdAt, LocalDateTime updatedAt, String program) {
+        super(id, title, venueId, venueName, organizerId, organizerName, startDatetime, endDatetime, description, createdAt, updatedAt);
         this.program = program;
     }
 

@@ -1,8 +1,10 @@
 package com.npopov.philharmonic.events.event.controller;
 
-import com.npopov.philharmonic.events.event.dto.EventResponse;
+import com.npopov.philharmonic.events.event.dto.*;
 import com.npopov.philharmonic.events.event.domain.Event;
 import com.npopov.philharmonic.events.event.service.EventService;
+import com.npopov.philharmonic.shared.controller.GenericRestController;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,18 +16,30 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/events")
 public class EventController {
 
-//    private final GenericRestController<Event, Long, EventResponse, EventCreateRequest> eventRestController;
-
-
+    private final GenericRestController<Event, Long,
+                EventResponse, EventCreateRequest, EventUpdateRequest> genericController;
     private final EventService eventService;
+    private final EventMapper eventMapper;
 
-    public EventController(EventService eventService) {
+    public EventController(EventService eventService, EventMapper eventMapper) {
         this.eventService = eventService;
+        this.eventMapper = eventMapper;
+        this.genericController = new GenericRestController<>(
+                eventService,
+                eventMapper::toResponse,
+                eventMapper::toEventFromCreate,
+                (id, req) -> {
+                    Event event = eventMapper.toEventFromUpdate(req);
+                    event.setId(id);
+                    return event;
+                }
+        );
     }
 
     @GetMapping
-    public List<EventResponse> getAllEvents(@RequestParam(required = false) LocalDateTime start, @RequestParam(required = false) LocalDateTime end,
-                                            @RequestParam(required = false) Long organizerId, @RequestParam(required = false) Long venueId) {
+    public ResponseEntity<List<EventResponse>> getAll(
+            @RequestParam(required = false) LocalDateTime start, @RequestParam(required = false) LocalDateTime end,
+            @RequestParam(required = false) Long organizerId, @RequestParam(required = false) Long venueId) {
         List<Event> events;
         if (start != null && end != null) {
             events = eventService.findByPeriod(start, end);
@@ -34,39 +48,31 @@ public class EventController {
         } else if (venueId != null) {
             events = eventService.findByVenue(venueId);
         } else {
-            events = eventService.findAll();
+            events = eventService.getAll();
         }
-        return events.stream().map(eventService::toResponse).collect(Collectors.toList());
+        return ResponseEntity.ok(events.stream().map(eventService::toResponse).collect(Collectors.toList()));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<EventResponse> getEventById(@PathVariable Long id) {
-        return eventService.findById(id)
-                .map(event -> ResponseEntity.ok(eventService.toResponse(event)))
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<EventResponse> getById(@PathVariable Long id) {
+        return genericController.getById(id);
     }
 
-//    @PostMapping
-//    public EventResponse createEvent(@RequestBody EventCreateRequest request) {
-//        Event event = eventService.createFromRequest(request);
-//        return eventService.toResponse(event);
-//    }
+    @PostMapping
+    public ResponseEntity<EventResponse> create(@RequestBody EventCreateRequest request) {
+        Event event = eventService.createFromRequest(request);
+        return ResponseEntity.ok(eventService.toResponse(event));
+    }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Event> updateEvent(@PathVariable Long id, @RequestBody Event event) {
-        if (!eventService.findById(id).isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
-        event.setId(id);
-        return ResponseEntity.ok(eventService.save(event));
+    public ResponseEntity<EventResponse> updateEvent(
+            @PathVariable Long id,
+            @Valid @RequestBody EventUpdateRequest request) {
+        return genericController.update(id, request);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteEvent(@PathVariable Long id) {
-        if (!eventService.findById(id).isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
-        eventService.deleteById(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        return genericController.delete(id);
     }
 }
